@@ -1,5 +1,5 @@
 import { Calendar } from '@/components/ui/calendar';
-import { MIN_DATE, SCHEDULE_CONFIG } from '@/lib/constants';
+import { MIN_DATE, SCHEDULE_SLOTS } from '@/lib/constants';
 import { isSunday, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -22,8 +22,8 @@ export function BookingCalendar({ selected, onSelect }: BookingCalendarProps) {
     
     // Disable days with no schedule
     const dayOfWeek = date.getDay();
-    const schedule = SCHEDULE_CONFIG[dayOfWeek];
-    if (!schedule || schedule.length === 0) {
+    const slots = SCHEDULE_SLOTS[dayOfWeek];
+    if (!slots || slots.length === 0) {
       return true;
     }
     
