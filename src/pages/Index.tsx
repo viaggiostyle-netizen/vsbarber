@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { SERVICES } from '@/lib/constants';
+import { SERVICES, formatPrice } from '@/lib/constants';
 import { ServiceCard } from '@/components/ServiceCard';
 import { BookingForm } from '@/components/BookingForm';
 import { ConfirmationScreen } from '@/components/ConfirmationScreen';
 import { CancelBooking } from '@/components/CancelBooking';
-import { Scissors } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type Step = 'services' | 'booking' | 'confirmation' | 'cancel';
+
+interface ServiceSelection {
+  service: typeof SERVICES[number];
+  quantity: number;
+}
 
 interface ConfirmedReserva {
   nombre: string;
@@ -18,12 +23,46 @@ interface ConfirmedReserva {
 
 const Index = () => {
   const [step, setStep] = useState<Step>('services');
-  const [selectedService, setSelectedService] = useState<typeof SERVICES[number] | null>(null);
+  const [selections, setSelections] = useState<ServiceSelection[]>([]);
   const [confirmedReserva, setConfirmedReserva] = useState<ConfirmedReserva | null>(null);
 
-  const handleServiceSelect = (service: typeof SERVICES[number]) => {
-    setSelectedService(service);
-    setStep('booking');
+  const handleAddService = (service: typeof SERVICES[number]) => {
+    setSelections((prev) => {
+      const existing = prev.find((s) => s.service.id === service.id);
+      if (existing) {
+        return prev.map((s) =>
+          s.service.id === service.id ? { ...s, quantity: s.quantity + 1 } : s
+        );
+      }
+      return [...prev, { service, quantity: 1 }];
+    });
+  };
+
+  const handleRemoveService = (serviceId: string) => {
+    setSelections((prev) => {
+      const existing = prev.find((s) => s.service.id === serviceId);
+      if (existing && existing.quantity > 1) {
+        return prev.map((s) =>
+          s.service.id === serviceId ? { ...s, quantity: s.quantity - 1 } : s
+        );
+      }
+      return prev.filter((s) => s.service.id !== serviceId);
+    });
+  };
+
+  const totalPrice = selections.reduce(
+    (sum, s) => sum + s.service.price * s.quantity,
+    0
+  );
+
+  const serviceSummary = selections
+    .map((s) => (s.quantity > 1 ? `${s.service.name} x${s.quantity}` : s.service.name))
+    .join(' + ');
+
+  const handleContinue = () => {
+    if (selections.length > 0) {
+      setStep('booking');
+    }
   };
 
   const handleBookingSuccess = (reserva: ConfirmedReserva) => {
@@ -33,7 +72,7 @@ const Index = () => {
 
   const handleNewBooking = () => {
     setStep('services');
-    setSelectedService(null);
+    setSelections([]);
     setConfirmedReserva(null);
   };
 
@@ -42,13 +81,8 @@ const Index = () => {
       <div className="container max-w-lg mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
         <header className="text-center mb-10">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-foreground flex items-center justify-center">
-              <Scissors className="w-8 h-8 text-background" />
-            </div>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">ViaggioStyle</h1>
-          <p className="text-muted-foreground mt-2">Barbería Premium</p>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight uppercase">ViaggioStyle</h1>
+          <p className="text-muted-foreground mt-2">Eleva tu imagen. Reserva tu cita.</p>
         </header>
 
         {/* Content */}
@@ -56,17 +90,35 @@ const Index = () => {
           {step === 'services' && (
             <div className="space-y-6">
               <div className="space-y-3">
-                {SERVICES.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    name={service.name}
-                    description={service.description}
-                    price={service.price}
-                    selected={selectedService?.id === service.id}
-                    onSelect={() => handleServiceSelect(service)}
-                  />
-                ))}
+                {SERVICES.map((service) => {
+                  const selection = selections.find((s) => s.service.id === service.id);
+                  const quantity = selection?.quantity || 0;
+
+                  return (
+                    <ServiceCard
+                      key={service.id}
+                      name={service.name}
+                      description={service.description}
+                      price={service.price}
+                      quantity={quantity}
+                      onAdd={() => handleAddService(service)}
+                      onRemove={() => handleRemoveService(service.id)}
+                    />
+                  );
+                })}
               </div>
+
+              {selections.length > 0 && (
+                <div className="p-4 rounded-lg border border-border bg-card">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-muted-foreground">{serviceSummary}</span>
+                    <span className="text-xl font-bold">{formatPrice(totalPrice)}</span>
+                  </div>
+                  <Button onClick={handleContinue} className="w-full">
+                    Continuar
+                  </Button>
+                </div>
+              )}
 
               <div className="pt-4 text-center">
                 <button
@@ -79,10 +131,10 @@ const Index = () => {
             </div>
           )}
 
-          {step === 'booking' && selectedService && (
+          {step === 'booking' && selections.length > 0 && (
             <BookingForm
-              serviceName={selectedService.name}
-              servicePrice={selectedService.price}
+              serviceName={serviceSummary}
+              servicePrice={totalPrice}
               onSuccess={handleBookingSuccess}
               onBack={() => setStep('services')}
             />

@@ -15,43 +15,30 @@ export const SERVICES = [
 
 export const MIN_DATE = new Date(2026, 0, 2); // January 2, 2026
 
-export const SLOT_DURATION = 40; // minutes
+// Time slots configuration by day of week (0 = Sunday, 1 = Monday, etc.)
+const WEEKDAY_FULL_SLOTS = [
+  '09:00', '09:40', '10:00', '10:40', '11:00', '11:40',
+  '12:00', '12:40', '13:00', '13:40',
+  // Pausa
+  '15:00', '15:40', '16:00', '16:40', '17:00', '17:40',
+  '18:00', '18:40', '19:00', '19:40', '20:00', '20:40',
+];
 
-// Schedule configuration by day of week (0 = Sunday, 1 = Monday, etc.)
-export const SCHEDULE_CONFIG: Record<number, { start: string; end: string }[]> = {
-  0: [], // Sunday - closed
-  1: [ // Monday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '13:40' },
-    { start: '15:00', end: '18:40' },
-    { start: '19:00', end: '20:40' },
-  ],
-  2: [ // Tuesday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '13:40' },
-    { start: '15:00', end: '18:40' },
-    { start: '19:00', end: '20:40' },
-  ],
-  3: [ // Wednesday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '16:40' },
-  ],
-  4: [ // Thursday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '13:40' },
-    { start: '15:00', end: '18:40' },
-    { start: '19:00', end: '20:40' },
-  ],
-  5: [ // Friday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '16:40' },
-  ],
-  6: [ // Saturday
-    { start: '09:00', end: '11:00' },
-    { start: '12:00', end: '13:40' },
-    { start: '15:00', end: '18:40' },
-    { start: '19:00', end: '20:40' },
-  ],
+const WEEKDAY_SHORT_SLOTS = [
+  '09:00', '09:40', '10:00', '10:40', '11:00', '11:40',
+  '12:00', '12:40', '13:00', '13:40',
+  // Pausa
+  '15:00', '15:40', '16:00', '16:40',
+];
+
+export const SCHEDULE_SLOTS: Record<number, string[]> = {
+  0: [], // Domingo - cerrado
+  1: WEEKDAY_FULL_SLOTS, // Lunes
+  2: WEEKDAY_FULL_SLOTS, // Martes
+  3: WEEKDAY_SHORT_SLOTS, // Miércoles
+  4: WEEKDAY_FULL_SLOTS, // Jueves
+  5: WEEKDAY_SHORT_SLOTS, // Viernes
+  6: WEEKDAY_FULL_SLOTS, // Sábado
 };
 
 export const ADMIN_EMAILS = [
@@ -69,29 +56,5 @@ export function formatPrice(price: number): string {
 
 export function generateTimeSlots(date: Date): string[] {
   const dayOfWeek = date.getDay();
-  const blocks = SCHEDULE_CONFIG[dayOfWeek] || [];
-  const slots: string[] = [];
-
-  for (const block of blocks) {
-    const [startHour, startMin] = block.start.split(':').map(Number);
-    const [endHour, endMin] = block.end.split(':').map(Number);
-    
-    let currentHour = startHour;
-    let currentMin = startMin;
-    
-    const endTime = endHour * 60 + endMin;
-    
-    while (currentHour * 60 + currentMin < endTime) {
-      const timeStr = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
-      slots.push(timeStr);
-      
-      currentMin += SLOT_DURATION;
-      if (currentMin >= 60) {
-        currentHour += Math.floor(currentMin / 60);
-        currentMin = currentMin % 60;
-      }
-    }
-  }
-
-  return slots;
+  return SCHEDULE_SLOTS[dayOfWeek] || [];
 }
