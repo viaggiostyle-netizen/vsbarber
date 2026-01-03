@@ -5,56 +5,65 @@ import { supabase } from '@/integrations/supabase/client';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-
-        // Defer role check with setTimeout
-        if (session?.user) {
-          setTimeout(() => {
-            checkAdminRole(session.user.id);
-          }, 0);
-        } else {
-          setIsAdmin(false);
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      if (session?.user) {
-        checkAdminRole(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const checkAdminRole = async (userId: string) => {
+    setRoleLoading(true);
+
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
-    
+
     if (!error && data) {
       setIsAdmin(true);
     } else {
       setIsAdmin(false);
     }
+
+    setRoleLoading(false);
   };
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+
+      // Defer role check (no Supabase calls inside the callback itself)
+      if (session?.user) {
+        setTimeout(() => {
+          void checkAdminRole(session.user.id);
+        }, 0);
+      } else {
+        setIsAdmin(false);
+        setRoleLoading(false);
+      }
+    });
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+
+      if (session?.user) {
+        await checkAdminRole(session.user.id);
+      } else {
+        setRoleLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -66,7 +75,7 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -88,10 +97,11 @@ export function useAuth() {
   return {
     user,
     session,
-    loading,
+    loading: authLoading || roleLoading,
     isAdmin,
     signIn,
     signUp,
     signOut,
   };
 }
+
