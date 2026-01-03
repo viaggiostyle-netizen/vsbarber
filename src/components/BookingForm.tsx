@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { BookingCalendar } from './BookingCalendar';
 import { TimeSlots } from './TimeSlots';
 import { useCreateReserva } from '@/hooks/useReservas';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const bookingSchema = z.object({
@@ -63,10 +64,28 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         hora: selectedTime,
       });
 
+      // Send email notification (non-blocking)
+      const fechaFormateada = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es });
+      supabase.functions.invoke('send-booking-notification', {
+        body: {
+          nombre: data.nombre,
+          email: data.email,
+          telefono: data.telefono,
+          servicio: serviceName,
+          fecha: fechaFormateada,
+          hora: selectedTime,
+          precio: servicePrice,
+        },
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error sending notification:', error);
+        }
+      });
+
       onSuccess({
         nombre: data.nombre,
         servicio: serviceName,
-        fecha: format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es }),
+        fecha: fechaFormateada,
         hora: selectedTime,
         precio: servicePrice,
       });
