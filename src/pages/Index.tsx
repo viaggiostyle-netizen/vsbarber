@@ -5,6 +5,7 @@ import { BookingForm } from '@/components/BookingForm';
 import { ConfirmationScreen } from '@/components/ConfirmationScreen';
 import { CancelBooking } from '@/components/CancelBooking';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 type Step = 'services' | 'booking' | 'confirmation' | 'cancel';
 
@@ -80,9 +81,14 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container max-w-lg mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
-        <header className="text-center mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight uppercase">ViaggioStyle</h1>
-          <p className="text-muted-foreground mt-2">Eleva tu imagen. Reserva tu cita.</p>
+        <header className="mb-10">
+          <div className="flex justify-end mb-4">
+            <ThemeToggle />
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight uppercase">ViaggioStyle</h1>
+            <p className="text-muted-foreground mt-2">Eleva tu imagen. Reserva tu cita.</p>
+          </div>
         </header>
 
         {/* Content */}
