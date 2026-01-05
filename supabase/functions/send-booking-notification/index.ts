@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending booking notification for:", { nombre, servicio, fecha, hora });
 
-    // Send notification to admin
+    // Send notification to admin (only to verified Resend email)
     const adminEmailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -36,7 +36,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         from: "ViaggioStyle <onboarding@resend.dev>",
-        to: ["viaggiostyle@gmail.com", "camiloviaggio01@gmail.com"],
+        to: ["viaggiostyle@gmail.com"],
         subject: `Nueva Reserva - ${nombre}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
