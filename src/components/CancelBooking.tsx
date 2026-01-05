@@ -11,6 +11,7 @@ import { useReservaByEmail, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice } from '@/lib/constants';
 import { toast } from 'sonner';
 import { ArrowLeft, Search, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const emailSchema = z.object({
   email: z.string().email('Ingresa un email válido'),
@@ -44,6 +45,21 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
     if (!reserva) return;
 
     try {
+      // Send cancellation notification before deleting
+      const fechaFormateada = format(parseISO(reserva.fecha), "EEEE d 'de' MMMM, yyyy", { locale: es });
+      
+      await supabase.functions.invoke('send-cancellation-notification', {
+        body: {
+          nombre: reserva.nombre,
+          email: reserva.email,
+          telefono: reserva.telefono,
+          servicio: reserva.servicio,
+          fecha: fechaFormateada,
+          hora: reserva.hora.substring(0, 5),
+          precio: reserva.precio,
+        },
+      });
+
       await deleteReserva.mutateAsync(reserva.id);
       setCancelled(true);
       toast.success('Tu cita ha sido cancelada correctamente');
