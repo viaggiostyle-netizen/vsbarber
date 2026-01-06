@@ -47,8 +47,8 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
     try {
       // Send cancellation notification before deleting
       const fechaFormateada = format(parseISO(reserva.fecha), "EEEE d 'de' MMMM, yyyy", { locale: es });
-      
-      await supabase.functions.invoke('send-cancellation-notification', {
+
+      const { error: notifyError } = await supabase.functions.invoke('send-cancellation-notification', {
         body: {
           nombre: reserva.nombre,
           email: reserva.email,
@@ -60,10 +60,17 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
         },
       });
 
+      if (notifyError) {
+        console.error('Cancellation notification error:', notifyError);
+        toast.error('No pudimos enviar el email de notificación. Intenta nuevamente.');
+        return;
+      }
+
       await deleteReserva.mutateAsync(reserva.id);
       setCancelled(true);
       toast.success('Tu cita ha sido cancelada correctamente');
     } catch (error) {
+      console.error('Cancel booking error:', error);
       toast.error('Error al cancelar la cita. Intenta nuevamente.');
     }
   };
