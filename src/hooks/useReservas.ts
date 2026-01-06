@@ -77,33 +77,8 @@ export function useReservaByEmail(email: string | null) {
   });
 }
 
-export function useCreateReserva() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (input: CreateReservaInput) => {
-      const { data, error } = await supabase
-        .from('reservas')
-        .insert({
-          nombre: input.nombre,
-          telefono: input.telefono,
-          email: input.email.toLowerCase(),
-          servicio: input.servicio,
-          precio: input.precio,
-          fecha: format(input.fecha, 'yyyy-MM-dd'),
-          hora: input.hora,
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data as Reserva;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservas'] });
-    },
-  });
-}
+// Note: Reservations are now created via secure edge function (create-reservation)
+// This hook is kept for admin functionality only
 
 export function useDeleteReserva() {
   const queryClient = useQueryClient();

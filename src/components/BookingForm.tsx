@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookingCalendar } from './BookingCalendar';
 import { TimeSlots } from './TimeSlots';
-import { useCreateReserva } from '@/hooks/useReservas';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 const bookingSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
@@ -37,7 +37,8 @@ interface BookingFormProps {
 export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: BookingFormProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const createReserva = useCreateReserva();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -53,35 +54,36 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await createReserva.mutateAsync({
-        nombre: data.nombre,
-        telefono: data.telefono,
-        email: data.email,
-        servicio: serviceName,
-        precio: servicePrice,
-        fecha: selectedDate,
-        hora: selectedTime,
-      });
-
-      // Send email notification (non-blocking)
-      const fechaFormateada = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es });
-      supabase.functions.invoke('send-booking-notification', {
+      // Use secure edge function to create reservation
+      const { data: result, error } = await supabase.functions.invoke('create-reservation', {
         body: {
           nombre: data.nombre,
-          email: data.email,
           telefono: data.telefono,
+          email: data.email,
           servicio: serviceName,
-          fecha: fechaFormateada,
-          hora: selectedTime,
           precio: servicePrice,
+          fecha: format(selectedDate, 'yyyy-MM-dd'),
+          hora: selectedTime,
         },
-      }).then(({ error }) => {
-        if (error) {
-          console.error('Error sending notification:', error);
-        }
       });
 
+      if (error) {
+        console.error('Reservation error:', error);
+        toast.error('Error al crear la reserva. Intenta nuevamente.');
+        return;
+      }
+
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      // Invalidate queries to refresh availability
+      queryClient.invalidateQueries({ queryKey: ['reservas-availability'] });
+
+      const fechaFormateada = format(selectedDate, "EEEE d 'de' MMMM, yyyy", { locale: es });
       onSuccess({
         nombre: data.nombre,
         servicio: serviceName,
@@ -90,11 +92,10 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         precio: servicePrice,
       });
     } catch (error: any) {
-      if (error.code === '23505') {
-        toast.error('Este horario ya fue reservado. Por favor elige otro.');
-      } else {
-        toast.error('Error al crear la reserva. Intenta nuevamente.');
-      }
+      console.error('Booking error:', error);
+      toast.error('Error al crear la reserva. Intenta nuevamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -166,10 +167,10 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         <Button
           type="submit"
           size="lg"
-          disabled={!selectedDate || !selectedTime || createReserva.isPending}
+          disabled={!selectedDate || !selectedTime || isSubmitting}
           className="w-full"
         >
-          {createReserva.isPending ? 'Agendando...' : 'Agendar reserva'}
+          {isSubmitting ? 'Agendando...' : 'Agendar reserva'}
         </Button>
         <Button
           type="button"
