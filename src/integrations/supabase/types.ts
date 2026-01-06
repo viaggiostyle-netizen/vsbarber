@@ -70,9 +70,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      reservas_availability: {
+        Row: {
+          fecha: string | null
+          hora: string | null
+          servicio: string | null
+        }
+        Insert: {
+          fecha?: string | null
+          hora?: string | null
+          servicio?: string | null
+        }
+        Update: {
+          fecha?: string | null
+          hora?: string | null
+          servicio?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_booked_hours: {
+        Args: { check_date: string }
+        Returns: {
+          hora: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
