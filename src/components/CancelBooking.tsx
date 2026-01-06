@@ -7,11 +7,12 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useReservaByEmail, useDeleteReserva } from '@/hooks/useReservas';
+import { useReservaByEmail } from '@/hooks/useReservas';
 import { formatPrice } from '@/lib/constants';
 import { toast } from 'sonner';
 import { ArrowLeft, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 const emailSchema = z.object({
   email: z.string().email('Ingresa un email válido'),
@@ -24,9 +25,10 @@ interface CancelBookingProps {
 export function CancelBooking({ onBack }: CancelBookingProps) {
   const [searchEmail, setSearchEmail] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
   
-  const { data: reserva, isLoading, refetch } = useReservaByEmail(searchEmail);
-  const deleteReserva = useDeleteReserva();
+  const { data: reserva, isLoading } = useReservaByEmail(searchEmail);
 
   const {
     register,
@@ -44,34 +46,38 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
   const handleCancel = async () => {
     if (!reserva) return;
 
+    setIsDeleting(true);
     try {
-      // Send cancellation notification before deleting
-      const fechaFormateada = format(parseISO(reserva.fecha), "EEEE d 'de' MMMM, yyyy", { locale: es });
-
-      const { error: notifyError } = await supabase.functions.invoke('send-cancellation-notification', {
+      // Call secure edge function that verifies email ownership and deletes
+      const { data, error } = await supabase.functions.invoke('send-cancellation-notification', {
         body: {
-          nombre: reserva.nombre,
+          reserva_id: reserva.id,
           email: reserva.email,
-          telefono: reserva.telefono,
-          servicio: reserva.servicio,
-          fecha: fechaFormateada,
-          hora: reserva.hora.substring(0, 5),
-          precio: reserva.precio,
         },
       });
 
-      if (notifyError) {
-        console.error('Cancellation notification error:', notifyError);
-        toast.error('No pudimos enviar el email de notificación. Intenta nuevamente.');
+      if (error) {
+        console.error('Cancellation error:', error);
+        toast.error('Error al cancelar la cita. Intenta nuevamente.');
         return;
       }
 
-      await deleteReserva.mutateAsync(reserva.id);
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['reservas'] });
+      queryClient.invalidateQueries({ queryKey: ['reserva-by-email'] });
+      
       setCancelled(true);
       toast.success('Tu cita ha sido cancelada correctamente');
     } catch (error) {
       console.error('Cancel booking error:', error);
       toast.error('Error al cancelar la cita. Intenta nuevamente.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -164,10 +170,10 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
                 onClick={handleCancel}
                 variant="destructive"
                 className="w-full"
-                disabled={deleteReserva.isPending}
+                disabled={isDeleting}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                {deleteReserva.isPending ? 'Cancelando...' : 'Cancelar cita'}
+                {isDeleting ? 'Cancelando...' : 'Cancelar cita'}
               </Button>
             </div>
           ) : (

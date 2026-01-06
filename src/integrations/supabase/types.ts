@@ -70,30 +70,27 @@ export type Database = {
       }
     }
     Views: {
-      reservas_availability: {
-        Row: {
-          fecha: string | null
-          hora: string | null
-          servicio: string | null
-        }
-        Insert: {
-          fecha?: string | null
-          hora?: string | null
-          servicio?: string | null
-        }
-        Update: {
-          fecha?: string | null
-          hora?: string | null
-          servicio?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       get_booked_hours: {
         Args: { check_date: string }
         Returns: {
           hora: string
+        }[]
+      }
+      get_reserva_by_email: {
+        Args: { search_email: string }
+        Returns: {
+          created_at: string
+          email: string
+          fecha: string
+          hora: string
+          id: string
+          nombre: string
+          precio: number
+          servicio: string
+          telefono: string
         }[]
       }
       has_role: {

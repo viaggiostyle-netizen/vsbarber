@@ -63,17 +63,15 @@ export function useReservaByEmail(email: string | null) {
     queryFn: async () => {
       if (!email) return null;
       
-      const today = format(new Date(), 'yyyy-MM-dd');
+      // Use secure RPC function to get reservation by email
       const { data, error } = await supabase
-        .from('reservas')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .gte('fecha', today)
-        .order('fecha', { ascending: true })
-        .maybeSingle();
+        .rpc('get_reserva_by_email', { search_email: email.toLowerCase() });
       
       if (error) throw error;
-      return data as Reserva | null;
+      
+      // RPC returns an array, get first result
+      const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      return result as Reserva | null;
     },
     enabled: !!email,
   });
