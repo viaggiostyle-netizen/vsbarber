@@ -42,17 +42,16 @@ export function useReservas() {
 
 export function useReservasByDate(date: Date | undefined) {
   return useQuery({
-    queryKey: ['reservas', date ? format(date, 'yyyy-MM-dd') : null],
+    queryKey: ['reservas-availability', date ? format(date, 'yyyy-MM-dd') : null],
     queryFn: async () => {
       if (!date) return [];
       
+      // Use secure RPC function that only returns booked hours (no personal data)
       const { data, error } = await supabase
-        .from('reservas')
-        .select('hora')
-        .eq('fecha', format(date, 'yyyy-MM-dd'));
+        .rpc('get_booked_hours', { check_date: format(date, 'yyyy-MM-dd') });
       
       if (error) throw error;
-      return data.map(r => r.hora) as string[];
+      return (data || []).map((r: { hora: string }) => r.hora) as string[];
     },
     enabled: !!date,
   });
