@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,6 +115,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailResult = await adminEmailRes.json();
     console.log("Admin cancellation notification sent:", emailResult);
+
+    // Send push notification
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          title: `⚠️ Reserva Cancelada - ${reserva.nombre}`,
+          body: `${reserva.servicio} - ${fechaFormateada} a las ${reserva.hora.substring(0, 5)}`,
+          data: { url: "/control", tag: "cancellation" }
+        }),
+      });
+      console.log("Push notification sent");
+    } catch (pushError) {
+      console.error("Error sending push notification:", pushError);
+    }
 
     return new Response(
       JSON.stringify({ success: true, deleted: true }),

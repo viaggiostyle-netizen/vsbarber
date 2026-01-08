@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.send-cancellation-notification]
 verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.create-reservation]
+verify_jwt = false

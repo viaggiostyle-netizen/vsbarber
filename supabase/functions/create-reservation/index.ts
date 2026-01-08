@@ -114,17 +114,37 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Reservation created:", reserva.id);
 
+    // Format date for notifications
+    const fechaObj = new Date(data.fecha);
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    const fechaFormateada = fechaObj.toLocaleDateString('es-ES', options);
+
+    // Send push notification to admin
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          title: `✂️ Nueva Reserva - ${data.nombre}`,
+          body: `${data.servicio} - ${fechaFormateada} a las ${data.hora.substring(0, 5)}`,
+          data: { url: "/control", tag: "new-reservation" }
+        }),
+      });
+      console.log("Push notification sent");
+    } catch (pushError) {
+      console.error("Error sending push notification:", pushError);
+    }
+
     // Send notification email to admin
     if (RESEND_API_KEY) {
-      const fechaObj = new Date(data.fecha);
-      const options: Intl.DateTimeFormatOptions = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      };
-      const fechaFormateada = fechaObj.toLocaleDateString('es-ES', options);
-
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {

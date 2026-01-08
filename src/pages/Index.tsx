@@ -6,6 +6,7 @@ import { ConfirmationScreen } from '@/components/ConfirmationScreen';
 import { CancelBooking } from '@/components/CancelBooking';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { PushNotificationButton } from '@/components/PushNotificationButton';
 
 type Step = 'services' | 'booking' | 'confirmation' | 'cancel';
 
@@ -82,7 +83,8 @@ const Index = () => {
       <div className="container max-w-lg mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
         <header className="mb-10">
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4">
+            <PushNotificationButton />
             <ThemeToggle />
           </div>
           <div className="text-center">
