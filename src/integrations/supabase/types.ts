@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      fcm_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          token: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       reservas: {
         Row: {
           created_at: string
