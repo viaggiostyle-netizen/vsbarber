@@ -126,6 +126,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send push notification to admin
     try {
+      const notificationBody = `📋 ${data.nombre}\n💇 ${data.servicio}\n📅 ${fechaFormateada} - ${data.hora.substring(0, 5)}`;
+      
       await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
         method: "POST",
         headers: {
@@ -133,9 +135,16 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
-          title: `✂️ Nueva Reserva - ${data.nombre}`,
-          body: `${data.servicio} - ${fechaFormateada} a las ${data.hora.substring(0, 5)}`,
-          data: { url: "/control", tag: "new-reservation" }
+          title: "ViaggioStyle - Nuevo turno reservado!",
+          body: notificationBody,
+          data: { 
+            url: "/control", 
+            tag: "new-reservation",
+            nombre: data.nombre,
+            servicio: data.servicio,
+            fecha: fechaFormateada,
+            hora: data.hora.substring(0, 5)
+          }
         }),
       });
       console.log("Push notification sent");
