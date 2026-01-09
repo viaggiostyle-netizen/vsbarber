@@ -17,32 +17,45 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
   
+  const data = payload.data || {};
   const notificationTitle = payload.notification?.title || 'ViaggioStyle';
+  
+  // Build body with formatted data if available
+  let body = payload.notification?.body || '';
+  
   const notificationOptions = {
-    body: payload.notification?.body || '',
+    body: body,
     icon: '/favicon.ico',
     badge: '/favicon.ico',
-    tag: payload.data?.tag || 'default',
-    data: payload.data
+    tag: data.tag || 'default',
+    data: {
+      url: data.url || '/control',
+      ...data
+    },
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click
+// Handle notification click - redirect to admin panel
 self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification clicked:', event);
   event.notification.close();
   
-  const urlToOpen = event.notification.data?.url || '/';
+  // Always redirect to /control (admin panel)
+  const urlToOpen = event.notification.data?.url || '/control';
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if there's already a window open with the target URL
       for (const client of windowClients) {
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url.includes(urlToOpen) && 'focus' in client) {
           return client.focus();
         }
       }
+      // If no window is open, open a new one
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
