@@ -1,7 +1,8 @@
 import { Calendar } from '@/components/ui/calendar';
-import { MIN_DATE, SCHEDULE_SLOTS } from '@/lib/constants';
+import { getMinDate, SCHEDULE_SLOTS } from '@/lib/constants';
 import { isSunday, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useMemo } from 'react';
 
 interface BookingCalendarProps {
   selected: Date | undefined;
@@ -9,9 +10,12 @@ interface BookingCalendarProps {
 }
 
 export function BookingCalendar({ selected, onSelect }: BookingCalendarProps) {
+  // Get today's date - recalculated on each render to stay current
+  const minDate = useMemo(() => getMinDate(), []);
+
   const disabledDays = (date: Date) => {
-    // Disable dates before MIN_DATE
-    if (isBefore(startOfDay(date), startOfDay(MIN_DATE))) {
+    // Disable dates before today
+    if (isBefore(startOfDay(date), startOfDay(minDate))) {
       return true;
     }
     
@@ -39,7 +43,7 @@ export function BookingCalendar({ selected, onSelect }: BookingCalendarProps) {
         disabled={disabledDays}
         locale={es}
         className="rounded-lg border bg-card p-3 pointer-events-auto"
-        fromDate={MIN_DATE}
+        fromDate={minDate}
       />
     </div>
   );
