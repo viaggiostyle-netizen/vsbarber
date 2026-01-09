@@ -13,7 +13,15 @@ export const SERVICES = [
   },
 ] as const;
 
-export const MIN_DATE = new Date(2026, 0, 2); // January 2, 2026
+// MIN_DATE is now dynamic - returns today's date at midnight
+export const getMinDate = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+// Keep MIN_DATE for backward compatibility but make it a getter
+export const MIN_DATE = getMinDate();
 
 // Time slots configuration by day of week (0 = Sunday, 1 = Monday, etc.)
 const WEEKDAY_FULL_SLOTS = [
