@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "notification-icon.jpg"],
+      includeAssets: ["favicon.ico", "notification-icon.png"],
       manifest: {
         name: "ViaggioStyle - Barbería",
         short_name: "ViaggioStyle",
