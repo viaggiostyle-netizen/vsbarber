@@ -1,5 +1,11 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  deleteToken,
+  Messaging,
+} from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCshE8btNDsMW4LHCQ2Owup5YC8BszJPfg",
@@ -7,10 +13,11 @@ const firebaseConfig = {
   projectId: "viaggiostyle-5977a",
   storageBucket: "viaggiostyle-5977a.firebasestorage.app",
   messagingSenderId: "96185700264",
-  appId: "1:96185700264:web:afba72e65d5884f711579d"
+  appId: "1:96185700264:web:afba72e65d5884f711579d",
 };
 
-const VAPID_KEY = "BP-KxciWQ2dXoHqsdsQ4k3VtcQcyo62cHY_AiM1RyUE3LI7cKWZUqztjqsYWxHcbQdwqYXid9R3axgUZAJXSd2I";
+const VAPID_KEY =
+  "BP-KxciWQ2dXoHqsdsQ4k3VtcQcyo62cHY_AiM1RyUE3LI7cKWZUqztjqsYWxHcbQdwqYXid9R3axgUZAJXSd2I";
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -77,6 +84,22 @@ export const getExistingFcmToken = async (): Promise<string | null> => {
   } catch (error) {
     console.error("Error getting existing FCM token:", error);
     return null;
+  }
+};
+
+// Best-effort: delete current FCM token from the device/browser
+export const deleteCurrentFcmToken = async (): Promise<boolean> => {
+  try {
+    const messagingInstance = getMessagingInstance();
+    if (!messagingInstance) return false;
+
+    // Ensure SW is registered (idempotent) so the messaging instance is fully wired
+    await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
+    return await deleteToken(messagingInstance);
+  } catch (error) {
+    console.error("Error deleting FCM token:", error);
+    return false;
   }
 };
 
