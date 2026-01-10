@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PushNotificationButton } from '@/components/PushNotificationButton';
 import { useAuth } from '@/hooks/useAuth';
-import { Settings, Scissors } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 type Step = 'services' | 'booking' | 'confirmation' | 'cancel';
 
