@@ -1,21 +1,73 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { requestNotificationPermission, onForegroundMessage } from "@/lib/firebase";
+import {
+  requestNotificationPermission,
+  onForegroundMessage,
+  getExistingFcmToken,
+} from "@/lib/firebase";
 import { toast } from "sonner";
+
+const STORAGE_KEY = "vs_fcm_token";
+
+const upsertToken = async (fcmToken: string) => {
+  const { error } = await supabase
+    .from("fcm_tokens")
+    .upsert(
+      {
+        token: fcmToken,
+        user_agent: navigator.userAgent,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "token" }
+    );
+
+  if (error) throw error;
+};
 
 export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  // Check if already subscribed
+  // Hydrate subscription state more accurately than just Notification.permission
   useEffect(() => {
-    const checkSubscription = async () => {
-      if ("Notification" in window) {
-        setIsSubscribed(Notification.permission === "granted");
+    const init = async () => {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setToken(stored);
+        setIsSubscribed(true);
+        // Best-effort: ensure backend has it (don’t block UI)
+        upsertToken(stored).catch((e) =>
+          console.warn("FCM token upsert (stored) failed:", e)
+        );
+        return;
+      }
+
+      // If permission is already granted (common on mobile), try to fetch/register token silently.
+      if (Notification.permission === "granted") {
+        const existing = await getExistingFcmToken();
+        if (existing) {
+          try {
+            await upsertToken(existing);
+            localStorage.setItem(STORAGE_KEY, existing);
+            setToken(existing);
+            setIsSubscribed(true);
+          } catch (e) {
+            console.error("Error saving existing FCM token:", e);
+            setIsSubscribed(false);
+          }
+        } else {
+          // Permission granted but no token: show as NOT subscribed so user can retry.
+          setIsSubscribed(false);
+        }
+      } else {
+        setIsSubscribed(false);
       }
     };
-    checkSubscription();
+
+    init();
   }, []);
 
   // Listen for foreground messages
@@ -33,30 +85,17 @@ export const usePushNotifications = () => {
     setIsLoading(true);
     try {
       const fcmToken = await requestNotificationPermission();
-      
+
       if (!fcmToken) {
-        toast.error("No se pudo obtener el permiso de notificaciones");
-        return false;
-      }
-
-      // Save token to database
-      const { error } = await supabase
-        .from("fcm_tokens")
-        .upsert(
-          { 
-            token: fcmToken, 
-            user_agent: navigator.userAgent,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: "token" }
+        toast.error(
+          "No se pudo activar: revisá permisos de notificación y volvé a intentar"
         );
-
-      if (error) {
-        console.error("Error saving FCM token:", error);
-        toast.error("Error al guardar el token de notificaciones");
         return false;
       }
 
+      await upsertToken(fcmToken);
+
+      localStorage.setItem(STORAGE_KEY, fcmToken);
       setToken(fcmToken);
       setIsSubscribed(true);
       toast.success("¡Notificaciones activadas!");

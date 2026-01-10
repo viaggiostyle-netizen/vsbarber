@@ -28,35 +28,54 @@ export const getMessagingInstance = (): Messaging | null => {
   return null;
 };
 
-// Request permission and get FCM token
+// Internal helper to register SW and fetch a token (assumes permission is already granted)
+const fetchFcmToken = async (): Promise<string | null> => {
+  const messagingInstance = getMessagingInstance();
+  if (!messagingInstance) {
+    console.log("Messaging not supported");
+    return null;
+  }
+
+  // Register service worker (idempotent)
+  const registration = await navigator.serviceWorker.register(
+    "/firebase-messaging-sw.js"
+  );
+
+  const token = await getToken(messagingInstance, {
+    vapidKey: VAPID_KEY,
+    serviceWorkerRegistration: registration,
+  });
+
+  console.log("FCM Token:", token);
+  return token || null;
+};
+
+// Request permission (if needed) and get FCM token
 export const requestNotificationPermission = async (): Promise<string | null> => {
   try {
     const permission = await Notification.requestPermission();
-    
+
     if (permission !== "granted") {
       console.log("Notification permission denied");
       return null;
     }
 
-    const messagingInstance = getMessagingInstance();
-    if (!messagingInstance) {
-      console.log("Messaging not supported");
-      return null;
-    }
-
-    // Register service worker
-    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    
-    // Get token
-    const token = await getToken(messagingInstance, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration
-    });
-
-    console.log("FCM Token:", token);
-    return token;
+    return await fetchFcmToken();
   } catch (error) {
     console.error("Error getting FCM token:", error);
+    return null;
+  }
+};
+
+// Get token without prompting (only works if permission is already granted)
+export const getExistingFcmToken = async (): Promise<string | null> => {
+  try {
+    if (typeof window === "undefined" || !("Notification" in window)) return null;
+    if (Notification.permission !== "granted") return null;
+
+    return await fetchFcmToken();
+  } catch (error) {
+    console.error("Error getting existing FCM token:", error);
     return null;
   }
 };
