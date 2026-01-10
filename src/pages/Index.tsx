@@ -106,9 +106,6 @@ const Index = () => {
             <ThemeToggle />
           </div>
           <div className="text-center">
-            <div className="flex justify-center mb-2">
-              <Scissors className="h-8 w-8 text-primary" />
-            </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight uppercase">ViaggioStyle</h1>
             <p className="text-muted-foreground mt-2">Eleva tu imagen. Reserva tu cita.</p>
           </div>
