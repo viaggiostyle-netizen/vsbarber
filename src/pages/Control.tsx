@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -9,6 +9,8 @@ import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReserva
 import { formatPrice } from '@/lib/constants';
 import { toast } from 'sonner';
 import { Scissors, LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users } from 'lucide-react';
+import SplashScreen from '@/components/SplashScreen';
+import vsLogo from '@/assets/vs-logo.jpg';
 
 const Control = () => {
   const { user, loading, isAdmin, signOut } = useAuth();
@@ -16,6 +18,7 @@ const Control = () => {
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
   const deleteReserva = useDeleteReserva();
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -59,6 +62,10 @@ const Control = () => {
     return null;
   }
 
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto px-4 py-8">
@@ -69,8 +76,8 @@ const Control = () => {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-foreground flex items-center justify-center">
-                <Scissors className="w-5 h-5 text-background" />
+              <div className="w-10 h-10 rounded-full overflow-hidden">
+                <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h1 className="text-xl font-bold">Panel de Control</h1>
