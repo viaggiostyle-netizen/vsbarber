@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
+
 import { formatPrice } from '@/lib/constants';
 import { toast } from 'sonner';
 import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users } from 'lucide-react';
@@ -20,8 +20,6 @@ const Control = () => {
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
   const deleteReserva = useDeleteReserva();
-  const { isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } =
-    usePushNotifications();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -90,30 +88,10 @@ const Control = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-              <div className="leading-tight">
-                <p className="text-sm font-medium">Notificaciones</p>
-                <p className="text-xs text-muted-foreground">
-                  {isSubscribed ? 'Activadas' : 'Desactivadas'}
-                </p>
-              </div>
-              <Switch
-                checked={isSubscribed}
-                disabled={pushLoading}
-                onCheckedChange={(checked) => {
-                  if (checked) subscribe();
-                  else unsubscribe();
-                }}
-                aria-label="Activar o desactivar notificaciones"
-              />
-            </div>
-
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Salir
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleSignOut}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Salir
+          </Button>
         </header>
 
         {/* Stats Cards */}
