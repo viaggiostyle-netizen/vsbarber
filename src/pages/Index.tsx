@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SERVICES, formatPrice } from '@/lib/constants';
 import { ServiceCard } from '@/components/ServiceCard';
 import { BookingForm } from '@/components/BookingForm';
@@ -7,6 +8,8 @@ import { CancelBooking } from '@/components/CancelBooking';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PushNotificationButton } from '@/components/PushNotificationButton';
+import { useAuth } from '@/hooks/useAuth';
+import { Settings, Scissors } from 'lucide-react';
 
 type Step = 'services' | 'booking' | 'confirmation' | 'cancel';
 
@@ -24,6 +27,8 @@ interface ConfirmedReserva {
 }
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [step, setStep] = useState<Step>('services');
   const [selections, setSelections] = useState<ServiceSelection[]>([]);
   const [confirmedReserva, setConfirmedReserva] = useState<ConfirmedReserva | null>(null);
@@ -84,10 +89,26 @@ const Index = () => {
         {/* Header */}
         <header className="mb-10">
           <div className="flex justify-end gap-2 mb-4">
-            <PushNotificationButton />
+            {isAdmin && (
+              <>
+                <PushNotificationButton />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/control')}
+                  className="border-primary/20 hover:bg-primary/10"
+                  title="Panel de Admin"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <ThemeToggle />
           </div>
           <div className="text-center">
+            <div className="flex justify-center mb-2">
+              <Scissors className="h-8 w-8 text-primary" />
+            </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight uppercase">ViaggioStyle</h1>
             <p className="text-muted-foreground mt-2">Eleva tu imagen. Reserva tu cita.</p>
           </div>
