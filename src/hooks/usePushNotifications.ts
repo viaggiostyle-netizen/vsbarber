@@ -4,6 +4,7 @@ import {
   requestNotificationPermission,
   onForegroundMessage,
   getExistingFcmToken,
+  deleteCurrentFcmToken,
 } from "@/lib/firebase";
 import { toast } from "sonner";
 
@@ -21,6 +22,11 @@ const upsertToken = async (fcmToken: string) => {
       { onConflict: "token" }
     );
 
+  if (error) throw error;
+};
+
+const deleteTokenRow = async (fcmToken: string) => {
+  const { error } = await supabase.from("fcm_tokens").delete().eq("token", fcmToken);
   if (error) throw error;
 };
 
@@ -75,7 +81,8 @@ export const usePushNotifications = () => {
     const unsubscribe = onForegroundMessage((payload) => {
       console.log("Foreground message received:", payload);
       // Data-only messages have title/body in data, not notification
-      const title = payload.data?.title || payload.notification?.title || "Nueva notificación";
+      const title =
+        payload.data?.title || payload.notification?.title || "Nueva notificación";
       const body = payload.data?.body || payload.notification?.body;
       toast(`✂️ ${title}`, {
         description: body,
@@ -112,10 +119,38 @@ export const usePushNotifications = () => {
     }
   }, []);
 
+  const unsubscribe = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const current = token ?? localStorage.getItem(STORAGE_KEY);
+      if (!current) {
+        setIsSubscribed(false);
+        return true;
+      }
+
+      // Best-effort: remove from device/browser first, then backend
+      await deleteCurrentFcmToken();
+      await deleteTokenRow(current);
+
+      localStorage.removeItem(STORAGE_KEY);
+      setToken(null);
+      setIsSubscribed(false);
+      toast.success("Notificaciones desactivadas");
+      return true;
+    } catch (error) {
+      console.error("Error unsubscribing from push:", error);
+      toast.error("Error al desactivar notificaciones");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
   return {
     isSubscribed,
     isLoading,
     token,
     subscribe,
+    unsubscribe,
   };
 };
