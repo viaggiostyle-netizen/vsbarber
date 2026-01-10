@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_hours: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fecha: string
+          hora: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fecha: string
+          hora: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          hora?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: []
+      }
       fcm_tokens: {
         Row: {
           created_at: string
@@ -97,6 +124,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_blocked_hours: {
+        Args: { check_date: string }
+        Returns: {
+          hora: string
+        }[]
+      }
       get_booked_hours: {
         Args: { check_date: string }
         Returns: {
