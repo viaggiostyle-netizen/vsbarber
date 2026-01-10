@@ -92,27 +92,28 @@ async function getAccessToken(): Promise<string> {
 }
 
 // Send FCM message using HTTP v1 API
+// Using data-only messages to avoid double notification display
 async function sendFCMMessage(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
+    // Use data-only message to prevent FCM from auto-displaying AND service worker also displaying
     const message = {
       message: {
         token,
-        notification: {
+        // Data-only message - notification handled by service worker only
+        data: {
           title,
-          body
+          body,
+          tag: 'vs-reservation',
+          url: data?.url || '/control',
+          ...(data || {})
         },
-        data: data || {},
         webpush: {
-          notification: {
-            icon: "/favicon.ico",
-            badge: "/favicon.ico"
-          },
-          fcm_options: {
-            link: data?.url || "/"
+          headers: {
+            Urgency: 'high'
           }
         }
       }

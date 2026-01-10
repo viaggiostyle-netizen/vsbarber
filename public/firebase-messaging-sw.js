@@ -13,21 +13,26 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages
+// Handle background messages ONLY (foreground is handled by the app)
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
   
-  const data = payload.data || {};
-  const notificationTitle = payload.notification?.title || 'ViaggioStyle';
+  // IMPORTANT: Only show notification if the app sent data-only message
+  // If there's a notification field, FCM will auto-display it, so we skip
+  if (payload.notification) {
+    console.log('[firebase-messaging-sw.js] Notification handled by FCM, skipping manual display');
+    return;
+  }
   
-  // Build body with formatted data if available
-  let body = payload.notification?.body || '';
+  const data = payload.data || {};
+  const notificationTitle = data.title || 'ViaggioStyle';
+  const body = data.body || '';
   
   const notificationOptions = {
     body: body,
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: data.tag || 'default',
+    icon: '/notification-icon.jpg',
+    badge: '/notification-icon.jpg',
+    tag: data.tag || 'vs-notification',
     data: {
       url: data.url || '/control',
       ...data
