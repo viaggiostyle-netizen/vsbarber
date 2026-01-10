@@ -70,12 +70,15 @@ export const usePushNotifications = () => {
     init();
   }, []);
 
-  // Listen for foreground messages
+  // Listen for foreground messages (data-only messages)
   useEffect(() => {
     const unsubscribe = onForegroundMessage((payload) => {
       console.log("Foreground message received:", payload);
-      toast(payload.notification?.title || "Nueva notificación", {
-        description: payload.notification?.body,
+      // Data-only messages have title/body in data, not notification
+      const title = payload.data?.title || payload.notification?.title || "Nueva notificación";
+      const body = payload.data?.body || payload.notification?.body;
+      toast(`✂️ ${title}`, {
+        description: body,
       });
     });
     return unsubscribe;
