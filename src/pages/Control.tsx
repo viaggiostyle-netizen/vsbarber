@@ -9,11 +9,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3 } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
 import RevenueStats from '@/components/RevenueStats';
+import { AdminRoleManager } from '@/components/AdminRoleManager';
 import vsLogo from '@/assets/vs-logo.jpg';
 
 const Control = () => {
@@ -132,7 +133,7 @@ const Control = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="reservas" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="reservas" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Reservas</span>
@@ -144,6 +145,10 @@ const Control = () => {
             <TabsTrigger value="ingresos" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Ingresos</span>
+            </TabsTrigger>
+            <TabsTrigger value="seguridad" className="flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">Seguridad</span>
             </TabsTrigger>
           </TabsList>
 
@@ -206,6 +211,14 @@ const Control = () => {
 
           <TabsContent value="ingresos">
             <RevenueStats />
+          </TabsContent>
+
+          <TabsContent value="seguridad" className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              <h2 className="text-lg font-semibold">Seguridad / Roles</h2>
+            </div>
+            <AdminRoleManager />
           </TabsContent>
         </Tabs>
       </div>
