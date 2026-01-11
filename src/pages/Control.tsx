@@ -43,14 +43,25 @@ const Control = () => {
     }
   };
 
-  // Show loading only briefly, then show 404 if not authorized
+  // Show loading while checking auth and role
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando...</p>
+        <div className="animate-pulse">
+          <div className="w-10 h-10 rounded-full bg-muted mx-auto mb-4" />
+          <p className="text-muted-foreground">Verificando acceso...</p>
+        </div>
       </div>
     );
   }
+
+  // Debug: Log auth state
+  console.log('Control Auth State:', { 
+    userEmail: user?.email, 
+    isAdmin, 
+    isAllowedEmail,
+    loading 
+  });
 
   // Show 404 for ANY non-admin user (logged in or not) - route appears to not exist
   if (!user || !isAdmin || !isAllowedEmail) {
