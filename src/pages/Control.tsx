@@ -9,10 +9,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
+import RevenueStats from '@/components/RevenueStats';
 import vsLogo from '@/assets/vs-logo.jpg';
 
 const Control = () => {
@@ -122,14 +123,18 @@ const Control = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="reservas" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="reservas" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Reservas
+              <span className="hidden sm:inline">Reservas</span>
             </TabsTrigger>
             <TabsTrigger value="horarios" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Horarios
+              <span className="hidden sm:inline">Horarios</span>
+            </TabsTrigger>
+            <TabsTrigger value="ingresos" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Ingresos</span>
             </TabsTrigger>
           </TabsList>
 
@@ -188,6 +193,10 @@ const Control = () => {
 
           <TabsContent value="horarios">
             <HourBlockManager />
+          </TabsContent>
+
+          <TabsContent value="ingresos">
+            <RevenueStats />
           </TabsContent>
         </Tabs>
       </div>
