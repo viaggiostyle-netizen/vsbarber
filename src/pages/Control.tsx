@@ -28,12 +28,6 @@ const Control = () => {
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth', { replace: true });
-    }
-  }, [loading, user, navigate]);
-
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -56,15 +50,16 @@ const Control = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse">
           <div className="w-10 h-10 rounded-full bg-muted mx-auto mb-4" />
-          <p className="text-muted-foreground">Verificando acceso...</p>
+          <p className="text-muted-foreground">Cargando...</p>
         </div>
       </div>
     );
   }
 
-  // While redirecting to /auth
-  if (!user) {
-    return null;
+  // "Invisible route" - show 404 if not logged in OR not admin
+  // This hides the existence of /control from unauthorized users
+  if (!user || !isAdmin || !isAllowedEmail) {
+    return <NotFound />;
   }
 
   // Hide existence of /control for non-admins / not-allowed emails
