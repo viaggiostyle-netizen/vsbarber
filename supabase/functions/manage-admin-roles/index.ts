@@ -21,59 +21,12 @@ function json(data: unknown, status = 200) {
   });
 }
 
-type SupabaseAny = any;
-
-async function getAuthedUserId(supabase: SupabaseAny, req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return null;
-
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) return null;
-  return data.user.id as string;
-}
-
-async function isAdmin(supabase: SupabaseAny, userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-
-  return !error && data !== null;
-}
-
-async function findUserIdByEmail(
-  supabase: SupabaseAny,
-  email: string,
-): Promise<string | null> {
-  // We page through users until we find the email. For this app's scale it's fine.
-  const target = email.trim().toLowerCase();
-  if (!target) return null;
-
-  let page = 1;
-  const perPage = 200;
-
-  while (page <= 20) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) throw error;
-
-    const users = data?.users ?? [];
-    const match = users.find((u: any) => (u.email ?? "").toLowerCase() === target);
-    if (match?.id) return match.id;
-
-    if (users.length < perPage) break;
-    page++;
-  }
-
-  return null;
-}
-
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    // Client with user's JWT for authentication check
+    const userClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       global: {
         headers: {
           Authorization: req.headers.get("Authorization") ?? "",
@@ -81,32 +34,58 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const requesterId = await getAuthedUserId(supabase, req);
-    if (!requesterId) {
+    // Client with service role for admin operations (listUsers, getUserById, etc.)
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Get the authenticated user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
       return json({ success: false, error: "No autenticado" }, 401);
     }
 
-    const requesterIsAdmin = await isAdmin(supabase, requesterId);
-    if (!requesterIsAdmin) {
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData?.user) {
+      console.log("Auth error:", userError);
+      return json({ success: false, error: "No autenticado" }, 401);
+    }
+
+    const requesterId = userData.user.id;
+
+    // Check if requester is admin using service role client (bypasses RLS)
+    const { data: roleData, error: roleError } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", requesterId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (roleError || !roleData) {
+      console.log("Role check:", { roleError, roleData, requesterId });
       return json({ success: false, error: "No autorizado" }, 403);
     }
 
     const body: RequestBody = await req.json();
 
     if (body.action === "list") {
-      const { data: roles, error } = await supabase
+      const { data: roles, error } = await adminClient
         .from("user_roles")
         .select("user_id")
         .eq("role", "admin");
 
-      if (error) return json({ success: false, error: "Error al leer roles" }, 500);
+      if (error) {
+        console.log("List roles error:", error);
+        return json({ success: false, error: "Error al leer roles" }, 500);
+      }
 
-      const adminIds = Array.from(new Set((roles ?? []).map((r) => r.user_id)));
+      const adminIds = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
       const admins: Array<{ user_id: string; email: string }> = [];
 
       for (const id of adminIds) {
-        const { data, error: userErr } = await supabase.auth.admin.getUserById(id);
-        if (userErr) continue;
+        const { data, error: userErr } = await adminClient.auth.admin.getUserById(id);
+        if (userErr) {
+          console.log("Get user error:", userErr);
+          continue;
+        }
         const email = (data?.user?.email ?? "").toLowerCase();
         if (email) admins.push({ user_id: id, email });
       }
@@ -118,15 +97,40 @@ const handler = async (req: Request): Promise<Response> => {
       const email = body.email?.trim().toLowerCase();
       if (!email || email.length > 255) return json({ success: false, error: "Email inválido" }, 400);
 
-      const userId = await findUserIdByEmail(supabase, email);
-      if (!userId) return json({ success: false, error: "Ese usuario todavía no existe" }, 404);
+      // Find user by email using admin API
+      let targetUserId: string | null = null;
+      let page = 1;
+      const perPage = 200;
 
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" });
+      while (page <= 20) {
+        const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
+        if (error) {
+          console.log("List users error:", error);
+          throw error;
+        }
+
+        const users = data?.users ?? [];
+        const match = users.find((u: any) => (u.email ?? "").toLowerCase() === email);
+        if (match?.id) {
+          targetUserId = match.id;
+          break;
+        }
+
+        if (users.length < perPage) break;
+        page++;
+      }
+
+      if (!targetUserId) {
+        return json({ success: false, error: "Ese usuario todavía no existe. Debe registrarse primero." }, 404);
+      }
+
+      const { error } = await adminClient.from("user_roles").insert({ user_id: targetUserId, role: "admin" });
       if (error) {
         // Unique violation => already admin
         if ((error as any).code === "23505") {
           return json({ success: true });
         }
+        console.log("Insert role error:", error);
         return json({ success: false, error: "No se pudo asignar admin" }, 500);
       }
 
@@ -138,24 +142,32 @@ const handler = async (req: Request): Promise<Response> => {
       if (!targetId) return json({ success: false, error: "user_id requerido" }, 400);
 
       // Prevent removing the last admin
-      const { data: existingAdmins, error: listErr } = await supabase
+      const { data: existingAdmins, error: listErr } = await adminClient
         .from("user_roles")
         .select("user_id")
         .eq("role", "admin");
-      if (listErr) return json({ success: false, error: "Error al validar admins" }, 500);
 
-      const uniqueAdmins = Array.from(new Set((existingAdmins ?? []).map((r) => r.user_id)));
+      if (listErr) {
+        console.log("List admins error:", listErr);
+        return json({ success: false, error: "Error al validar admins" }, 500);
+      }
+
+      const uniqueAdmins = Array.from(new Set((existingAdmins ?? []).map((r: any) => r.user_id)));
       if (uniqueAdmins.length <= 1 && uniqueAdmins[0] === targetId) {
         return json({ success: false, error: "No podés eliminar el último admin" }, 400);
       }
 
-      const { error } = await supabase
+      const { error } = await adminClient
         .from("user_roles")
         .delete()
         .eq("user_id", targetId)
         .eq("role", "admin");
 
-      if (error) return json({ success: false, error: "No se pudo eliminar admin" }, 500);
+      if (error) {
+        console.log("Delete role error:", error);
+        return json({ success: false, error: "No se pudo eliminar admin" }, 500);
+      }
+
       return json({ success: true });
     }
 
