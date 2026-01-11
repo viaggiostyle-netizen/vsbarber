@@ -27,12 +27,6 @@ const Control = () => {
   // Check if user email is in the allowed list
   const isAllowedEmail = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -49,6 +43,7 @@ const Control = () => {
     }
   };
 
+  // Show loading only briefly, then show 404 if not authorized
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -57,7 +52,7 @@ const Control = () => {
     );
   }
 
-  // Show 404 for non-allowed users (either not admin or not in email list)
+  // Show 404 for ANY non-admin user (logged in or not) - route appears to not exist
   if (!user || !isAdmin || !isAllowedEmail) {
     return <NotFound />;
   }
