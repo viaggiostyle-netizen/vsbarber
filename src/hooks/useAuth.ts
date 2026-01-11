@@ -9,23 +9,27 @@ export function useAuth() {
   const [roleLoading, setRoleLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const checkAdminRole = async (userId: string) => {
+  const checkAdminRole = async (userId: string): Promise<boolean> => {
     setRoleLoading(true);
 
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
 
-    if (!error && data) {
-      setIsAdmin(true);
-    } else {
+      const hasAdminRole = !error && data !== null;
+      setIsAdmin(hasAdminRole);
+      setRoleLoading(false);
+      return hasAdminRole;
+    } catch (e) {
+      console.error('Error checking admin role:', e);
       setIsAdmin(false);
+      setRoleLoading(false);
+      return false;
     }
-
-    setRoleLoading(false);
   };
 
   useEffect(() => {
