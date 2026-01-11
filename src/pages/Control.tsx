@@ -25,7 +25,13 @@ const Control = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   // Check if user email is in the allowed list
-  const isAllowedEmail = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,16 +61,13 @@ const Control = () => {
     );
   }
 
-  // Debug: Log auth state
-  console.log('Control Auth State:', { 
-    userEmail: user?.email, 
-    isAdmin, 
-    isAllowedEmail,
-    loading 
-  });
+  // While redirecting to /auth
+  if (!user) {
+    return null;
+  }
 
-  // Show 404 for ANY non-admin user (logged in or not) - route appears to not exist
-  if (!user || !isAdmin || !isAllowedEmail) {
+  // Hide existence of /control for non-admins / not-allowed emails
+  if (!isAdmin || !isAllowedEmail) {
     return <NotFound />;
   }
 
