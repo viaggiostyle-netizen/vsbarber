@@ -24,26 +24,18 @@ const Control = () => {
   const { data: todayStats } = useTodayStats();
   const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
-  const [denyAfterGrace, setDenyAfterGrace] = useState(false);
+  const [graceExpired, setGraceExpired] = useState(false);
 
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
-  // Mobile-safe: if the user is logged in and has an allowed email, give role verification
-  // a grace period before showing the 404.
+  // Mobile-safe: avoid showing 404 too early while the auth system is still
+  // hydrating the session (common on Android browsers / PWAs).
   useEffect(() => {
-    if (loading) {
-      setDenyAfterGrace(false);
-      return;
-    }
-
-    if (user && isAllowedEmail && !isAdmin) {
-      const t = window.setTimeout(() => setDenyAfterGrace(true), 5000);
-      return () => window.clearTimeout(t);
-    }
-
-    setDenyAfterGrace(false);
-  }, [loading, user?.id, isAllowedEmail, isAdmin]);
+    setGraceExpired(false);
+    const t = window.setTimeout(() => setGraceExpired(true), 10_000);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -61,33 +53,26 @@ const Control = () => {
     }
   };
 
-  // Show loading while checking auth and role
-  // Critical for mobile: wait for BOTH auth AND role check to complete
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden animate-pulse">
-            <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
-          </div>
-          <p className="text-muted-foreground text-sm">Verificando acceso...</p>
+  const FullscreenLoader = ({ label }: { label: string }) => (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-full overflow-hidden animate-pulse">
+          <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
         </div>
+        <p className="text-muted-foreground text-sm">{label}</p>
       </div>
-    );
+    </div>
+  );
+
+  // Show loading while checking auth and role
+  if (loading) {
+    return <FullscreenLoader label="Verificando acceso..." />;
   }
 
-  // Mobile grace period: if email is allowed but admin flag hasn't resolved yet, keep showing loader
-  if (user && isAllowedEmail && !isAdmin && !denyAfterGrace) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden animate-pulse">
-            <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
-          </div>
-          <p className="text-muted-foreground text-sm">Confirmando permisos...</p>
-        </div>
-      </div>
-    );
+  // Extra grace window: never show 404 immediately on mobile while the session
+  // may still be restored.
+  if (!graceExpired && (!user || !isAllowedEmail || !isAdmin)) {
+    return <FullscreenLoader label="Cargando panel..." />;
   }
 
   // "Invisible route" - show 404 if not logged in OR not admin
