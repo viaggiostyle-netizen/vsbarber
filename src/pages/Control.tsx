@@ -45,12 +45,15 @@ const Control = () => {
   };
 
   // Show loading while checking auth and role
+  // Critical for mobile: wait for BOTH auth AND role check to complete
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse">
-          <div className="w-10 h-10 rounded-full bg-muted mx-auto mb-4" />
-          <p className="text-muted-foreground">Cargando...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full overflow-hidden animate-pulse">
+            <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
+          </div>
+          <p className="text-muted-foreground text-sm">Verificando acceso...</p>
         </div>
       </div>
     );
@@ -59,11 +62,6 @@ const Control = () => {
   // "Invisible route" - show 404 if not logged in OR not admin
   // This hides the existence of /control from unauthorized users
   if (!user || !isAdmin || !isAllowedEmail) {
-    return <NotFound />;
-  }
-
-  // Hide existence of /control for non-admins / not-allowed emails
-  if (!isAdmin || !isAllowedEmail) {
     return <NotFound />;
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,8 +8,18 @@ export function useAuth() {
   const [authLoading, setAuthLoading] = useState(true);
   const [roleLoading, setRoleLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Track if initial load is complete (important for mobile)
+  const initialLoadComplete = useRef(false);
+  const roleCheckInProgress = useRef(false);
 
-  const checkAdminRole = async (userId: string): Promise<boolean> => {
+  const checkAdminRole = useCallback(async (userId: string): Promise<boolean> => {
+    // Prevent duplicate role checks
+    if (roleCheckInProgress.current) {
+      return isAdmin;
+    }
+    
+    roleCheckInProgress.current = true;
     setRoleLoading(true);
 
     try {
@@ -22,29 +32,68 @@ export function useAuth() {
 
       const hasAdminRole = !error && data !== null;
       setIsAdmin(hasAdminRole);
-      setRoleLoading(false);
       return hasAdminRole;
     } catch (e) {
       console.error('Error checking admin role:', e);
       setIsAdmin(false);
-      setRoleLoading(false);
       return false;
+    } finally {
+      setRoleLoading(false);
+      roleCheckInProgress.current = false;
     }
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        // Get existing session first (critical for mobile page refreshes)
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (existingSession?.user) {
+          setSession(existingSession);
+          setUser(existingSession.user);
+          // Wait for role check before marking auth as complete
+          await checkAdminRole(existingSession.user.id);
+        } else {
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
+          setRoleLoading(false);
+        }
+        
+        setAuthLoading(false);
+        initialLoadComplete.current = true;
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setAuthLoading(false);
+          setRoleLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      // Only handle changes after initial load to prevent race conditions on mobile
+      if (!initialLoadComplete.current) return;
+      
+      if (!mounted) return;
 
-      // Defer role check (no Supabase calls inside the callback itself)
-      if (session?.user) {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+
+      // Defer role check to avoid Supabase deadlock
+      if (currentSession?.user) {
         setTimeout(() => {
-          void checkAdminRole(session.user.id);
+          if (mounted) {
+            void checkAdminRole(currentSession.user.id);
+          }
         }, 0);
       } else {
         setIsAdmin(false);
@@ -52,22 +101,14 @@ export function useAuth() {
       }
     });
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
+    // Initialize auth
+    void initializeAuth();
 
-      if (session?.user) {
-        await checkAdminRole(session.user.id);
-      } else {
-        setRoleLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [checkAdminRole]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
