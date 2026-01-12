@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,40 +11,34 @@ export function useAuth() {
   
   // Track if initial load is complete (important for mobile)
   const initialLoadComplete = useRef(false);
-  const roleCheckInProgress = useRef(false);
-
-  const checkAdminRole = useCallback(async (userId: string): Promise<boolean> => {
-    // Prevent duplicate role checks
-    if (roleCheckInProgress.current) {
-      return isAdmin;
-    }
-    
-    roleCheckInProgress.current = true;
-    setRoleLoading(true);
-
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      const hasAdminRole = !error && data !== null;
-      setIsAdmin(hasAdminRole);
-      return hasAdminRole;
-    } catch (e) {
-      console.error('Error checking admin role:', e);
-      setIsAdmin(false);
-      return false;
-    } finally {
-      setRoleLoading(false);
-      roleCheckInProgress.current = false;
-    }
-  }, [isAdmin]);
 
   useEffect(() => {
     let mounted = true;
+
+    const checkAdminRole = async (userId: string): Promise<boolean> => {
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        const hasAdminRole = !error && data !== null;
+        if (mounted) {
+          setIsAdmin(hasAdminRole);
+          setRoleLoading(false);
+        }
+        return hasAdminRole;
+      } catch (e) {
+        console.error('Error checking admin role:', e);
+        if (mounted) {
+          setIsAdmin(false);
+          setRoleLoading(false);
+        }
+        return false;
+      }
+    };
 
     const initializeAuth = async () => {
       try {
@@ -108,7 +102,7 @@ export function useAuth() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [checkAdminRole]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -149,4 +143,3 @@ export function useAuth() {
     signOut,
   };
 }
-
