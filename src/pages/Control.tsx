@@ -38,7 +38,7 @@ const Control = () => {
     }
 
     if (user && isAllowedEmail && !isAdmin) {
-      const t = window.setTimeout(() => setDenyAfterGrace(true), 3000);
+      const t = window.setTimeout(() => setDenyAfterGrace(true), 5000);
       return () => window.clearTimeout(t);
     }
 
