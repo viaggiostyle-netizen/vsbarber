@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { useEffect, useRef, useState } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 export function useAuth() {
@@ -8,14 +8,29 @@ export function useAuth() {
   const [authLoading, setAuthLoading] = useState(true);
   const [roleLoading, setRoleLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  
-  // Track if initial load is complete (important for mobile)
-  const initialLoadComplete = useRef(false);
+
+  const mountedRef = useRef(true);
+  const initializedRef = useRef(false);
+  const lastRoleCheckKeyRef = useRef<string>('');
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
-    const checkAdminRole = async (userId: string): Promise<boolean> => {
+    const setAnonymous = () => {
+      if (!mountedRef.current) return;
+      setSession(null);
+      setUser(null);
+      setIsAdmin(false);
+      setRoleLoading(false);
+    };
+
+    const checkAdminRole = async (userId: string) => {
+      const key = `admin:${userId}`;
+      if (lastRoleCheckKeyRef.current === key) return;
+      lastRoleCheckKeyRef.current = key;
+
+      if (mountedRef.current) setRoleLoading(true);
+
       try {
         const { data, error } = await supabase
           .from('user_roles')
@@ -25,84 +40,70 @@ export function useAuth() {
           .maybeSingle();
 
         const hasAdminRole = !error && data !== null;
-        if (mounted) {
-          setIsAdmin(hasAdminRole);
-          setRoleLoading(false);
-        }
-        return hasAdminRole;
-      } catch (e) {
-        console.error('Error checking admin role:', e);
-        if (mounted) {
-          setIsAdmin(false);
-          setRoleLoading(false);
-        }
-        return false;
+        if (mountedRef.current) setIsAdmin(hasAdminRole);
+      } catch {
+        if (mountedRef.current) setIsAdmin(false);
+      } finally {
+        if (mountedRef.current) setRoleLoading(false);
       }
     };
 
-    const initializeAuth = async () => {
-      try {
-        // Get existing session first (critical for mobile page refreshes)
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
-        if (existingSession?.user) {
-          setSession(existingSession);
-          setUser(existingSession.user);
-          // Wait for role check before marking auth as complete
-          await checkAdminRole(existingSession.user.id);
-        } else {
-          setSession(null);
-          setUser(null);
-          setIsAdmin(false);
-          setRoleLoading(false);
-        }
-        
-        setAuthLoading(false);
-        initialLoadComplete.current = true;
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        if (mounted) {
-          setAuthLoading(false);
-          setRoleLoading(false);
-        }
-      }
-    };
-
-    // Set up auth state listener
+    // 1) Listener FIRST (prevents missing events on mobile)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      // Only handle changes after initial load to prevent race conditions on mobile
-      if (!initialLoadComplete.current) return;
-      
-      if (!mounted) return;
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mountedRef.current) return;
 
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
 
-      // Defer role check to avoid Supabase deadlock
-      if (currentSession?.user) {
+      // Mark auth as ready as soon as we hear from the auth system
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        setAuthLoading(false);
+      }
+
+      if (nextSession?.user) {
+        // Defer role check (avoid making Supabase calls inside callback)
         setTimeout(() => {
-          if (mounted) {
-            void checkAdminRole(currentSession.user.id);
-          }
+          if (mountedRef.current) void checkAdminRole(nextSession.user.id);
         }, 0);
       } else {
-        setIsAdmin(false);
-        setRoleLoading(false);
+        setAnonymous();
       }
     });
 
-    // Initialize auth
-    void initializeAuth();
+    // 2) Then read current session (critical on refresh / Safari)
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mountedRef.current) return;
+
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+
+        initializedRef.current = true;
+        setAuthLoading(false);
+
+        if (data.session?.user) {
+          void checkAdminRole(data.session.user.id);
+        } else {
+          setAnonymous();
+        }
+      })
+      .catch(() => {
+        if (!mountedRef.current) return;
+        initializedRef.current = true;
+        setAuthLoading(false);
+        setAnonymous();
+      });
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, []);
+
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

@@ -141,6 +141,19 @@ const handler = async (req: Request): Promise<Response> => {
       const targetId = body.user_id;
       if (!targetId) return json({ success: false, error: "user_id requerido" }, 400);
 
+      // Protect core admins from accidental lockout
+      const { data: targetUser, error: targetUserErr } = await adminClient.auth.admin.getUserById(targetId);
+      if (targetUserErr) {
+        console.log("Get target user error:", targetUserErr);
+        return json({ success: false, error: "No se pudo validar el usuario" }, 500);
+      }
+
+      const targetEmail = (targetUser?.user?.email ?? "").toLowerCase();
+      const protectedEmails = new Set(["camiloviaggio01@gmail.com", "viaggiostyle@gmail.com"]);
+      if (targetEmail && protectedEmails.has(targetEmail)) {
+        return json({ success: false, error: "Este admin está protegido y no puede ser removido" }, 400);
+      }
+
       // Prevent removing the last admin
       const { data: existingAdmins, error: listErr } = await adminClient
         .from("user_roles")
