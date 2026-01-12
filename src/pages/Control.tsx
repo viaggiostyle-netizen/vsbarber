@@ -24,9 +24,26 @@ const Control = () => {
   const { data: todayStats } = useTodayStats();
   const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
+  const [denyAfterGrace, setDenyAfterGrace] = useState(false);
 
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+
+  // Mobile-safe: if the user is logged in and has an allowed email, give role verification
+  // a grace period before showing the 404.
+  useEffect(() => {
+    if (loading) {
+      setDenyAfterGrace(false);
+      return;
+    }
+
+    if (user && isAllowedEmail && !isAdmin) {
+      const t = window.setTimeout(() => setDenyAfterGrace(true), 3000);
+      return () => window.clearTimeout(t);
+    }
+
+    setDenyAfterGrace(false);
+  }, [loading, user?.id, isAllowedEmail, isAdmin]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -54,6 +71,20 @@ const Control = () => {
             <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
           </div>
           <p className="text-muted-foreground text-sm">Verificando acceso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mobile grace period: if email is allowed but admin flag hasn't resolved yet, keep showing loader
+  if (user && isAllowedEmail && !isAdmin && !denyAfterGrace) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full overflow-hidden animate-pulse">
+            <img src={vsLogo} alt="ViaggioStyle" className="w-full h-full object-cover" />
+          </div>
+          <p className="text-muted-foreground text-sm">Confirmando permisos...</p>
         </div>
       </div>
     );

@@ -32,14 +32,13 @@ export function useAuth() {
       if (mountedRef.current) setRoleLoading(true);
 
       try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('role', 'admin')
-          .maybeSingle();
+        // Use the SECURITY DEFINER function to avoid any RLS issues on user_roles
+        const { data, error } = await supabase.rpc('has_role', {
+          _user_id: userId,
+          _role: 'admin',
+        });
 
-        const hasAdminRole = !error && data !== null;
+        const hasAdminRole = !error && data === true;
         if (mountedRef.current) setIsAdmin(hasAdminRole);
       } catch {
         if (mountedRef.current) setIsAdmin(false);
