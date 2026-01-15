@@ -56,8 +56,10 @@ if (messaging) {
 
 
     const data = payload.data || {};
-    const notificationTitle = payload.notification?.title || data.title || 'ViaggioStyle';
-    const body = payload.notification?.body || data.body || '';
+    const notificationTitle = data.title || 'ViaggioStyle';
+    const body = data.body || '';
+
+    console.log('[firebase-messaging-sw.js] Displaying notification:', notificationTitle, body);
 
     const notificationOptions = {
       body: body,
