@@ -128,12 +128,12 @@ const handler = async (req: Request): Promise<Response> => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
-        body: JSON.stringify({
-          title: "Cita cancelada!",
-          body: `${reserva.nombre}, ha cancelado su cita`,
-          mobileOnly: true,
-          data: { url: "/control", tag: "cancellation" }
-        }),
+         body: JSON.stringify({
+           title: "¡Cita cancelada!",
+           body: `${reserva.nombre}, ha cancelado/modificado su cita`,
+           mobileOnly: true,
+           data: { url: "/control", tag: "cancellation" }
+         }),
       });
       console.log("Push notification sent to mobile");
     } catch (pushError) {

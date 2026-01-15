@@ -22,19 +22,23 @@ try {
 
 const messaging = firebaseReady ? firebase.messaging() : null;
 
-// Fallback: if Firebase messaging isn't available, still try to display "notification" payloads.
+// Always try to display a notification from any push payload.
+// Using event.waitUntil() helps prevent Android/Chrome from showing the generic
+// "Este sitio se actualizó en segundo plano" message when no notification is displayed.
 self.addEventListener('push', (event) => {
-  if (firebaseReady) return; // Firebase will handle it
   try {
     const payload = event.data?.json?.() ?? null;
     const title = payload?.notification?.title || payload?.data?.title || 'ViaggioStyle';
     const body = payload?.notification?.body || payload?.data?.body || '';
 
+    // If there's nothing meaningful to show, do nothing.
+    if (!title && !body) return;
+
     event.waitUntil(
       self.registration.showNotification(title, {
         body,
-        icon: '/vs-logo.png',
-        badge: '/vs-logo.png',
+        icon: payload?.data?.icon || '/vs-logo.png',
+        badge: payload?.data?.badge || '/vs-logo.png',
         tag: payload?.data?.tag || 'vs-notification',
         data: { url: payload?.data?.url || '/control', ...(payload?.data || {}) },
         requireInteraction: true,
@@ -43,7 +47,7 @@ self.addEventListener('push', (event) => {
       })
     );
   } catch (e) {
-    console.error('[firebase-messaging-sw.js] push fallback failed:', e);
+    console.error('[firebase-messaging-sw.js] push handler failed:', e);
   }
 });
 
