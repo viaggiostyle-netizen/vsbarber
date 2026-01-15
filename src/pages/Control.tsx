@@ -37,6 +37,14 @@ const Control = () => {
     return () => window.clearTimeout(t);
   }, []);
 
+  // If after the grace window there's still no session, send the user to /auth
+  // (this prevents the confusing "404" on mobile when the session wasn't restored).
+  useEffect(() => {
+    if (!loading && graceExpired && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [loading, graceExpired, user, navigate]);
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -75,9 +83,14 @@ const Control = () => {
     return <FullscreenLoader label="Cargando panel..." />;
   }
 
-  // "Invisible route" - show 404 if not logged in OR not admin
+  // After grace: if there's still no session, we're redirecting to /auth.
+  if (graceExpired && !user) {
+    return <FullscreenLoader label="Redirigiendo..." />;
+  }
+
+  // "Invisible route" - show 404 if not admin
   // This hides the existence of /control from unauthorized users
-  if (!user || !isAdmin || !isAllowedEmail) {
+  if (!isAdmin || !isAllowedEmail) {
     return <NotFound />;
   }
 
