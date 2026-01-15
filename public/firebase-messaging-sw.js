@@ -33,11 +33,13 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(title, {
         body,
-        icon: '/notification-icon.png',
-        badge: '/notification-icon.png',
+        icon: '/vs-logo.png',
+        badge: '/vs-logo.png',
         tag: payload?.data?.tag || 'vs-notification',
         data: { url: payload?.data?.url || '/control', ...(payload?.data || {}) },
         requireInteraction: true,
+        vibrate: [200, 100, 200],
+        renotify: true
       })
     );
   } catch (e) {
@@ -50,11 +52,6 @@ if (messaging) {
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-    // On Web, "notification" payloads are NOT reliably auto-displayed when you
-    // also register onBackgroundMessage, so we ALWAYS display a notification here.
-    // To avoid duplicates, we rely on a stable tag.
-
-
     const data = payload.data || {};
     const notificationTitle = data.title || 'ViaggioStyle';
     const body = data.body || '';
@@ -63,15 +60,16 @@ if (messaging) {
 
     const notificationOptions = {
       body: body,
-      icon: '/notification-icon.png',
-      badge: '/notification-icon.png',
+      icon: data.icon || '/vs-logo.png',
+      badge: data.badge || '/vs-logo.png',
       tag: data.tag || 'vs-notification',
       data: {
         url: data.url || '/control',
         ...data
       },
       requireInteraction: true,
-      vibrate: [200, 100, 200]
+      vibrate: [200, 100, 200],
+      renotify: true
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);

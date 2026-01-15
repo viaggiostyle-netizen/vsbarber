@@ -116,7 +116,8 @@ async function sendFCMMessage(token: string, title: string, body: string, data?:
           body,
           tag: data?.tag || 'vs-reservation',
           url: data?.url || '/control',
-          icon: '/notification-icon.png',
+          icon: '/vs-logo.png',
+          badge: '/vs-logo.png',
           ...(data || {})
         },
         webpush: {
