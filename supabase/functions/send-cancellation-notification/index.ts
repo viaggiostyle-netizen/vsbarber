@@ -116,8 +116,12 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResult = await adminEmailRes.json();
     console.log("Admin cancellation notification sent:", emailResult);
 
-    // Send push notification
+    // Send push notification (mobile only)
     try {
+      const dia = String(fechaObj.getDate()).padStart(2, '0');
+      const mes = String(fechaObj.getMonth() + 1).padStart(2, '0');
+      const fechaCorta = `${dia}/${mes}`;
+      
       await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
         method: "POST",
         headers: {
@@ -125,12 +129,13 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
-          title: `⚠️ Reserva Cancelada - ${reserva.nombre}`,
-          body: `${reserva.servicio} - ${fechaFormateada} a las ${reserva.hora.substring(0, 5)}`,
+          title: "Cita cancelada!",
+          body: `${reserva.nombre}, ha cancelado su cita`,
+          mobileOnly: true,
           data: { url: "/control", tag: "cancellation" }
         }),
       });
-      console.log("Push notification sent");
+      console.log("Push notification sent to mobile");
     } catch (pushError) {
       console.error("Error sending push notification:", pushError);
     }

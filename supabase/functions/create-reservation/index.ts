@@ -114,19 +114,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Reservation created:", reserva.id);
 
-    // Format date for notifications
+    // Format date for notifications (dd/mm format)
     const fechaObj = new Date(data.fecha);
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    const fechaFormateada = fechaObj.toLocaleDateString('es-ES', options);
+    const dia = String(fechaObj.getDate()).padStart(2, '0');
+    const mes = String(fechaObj.getMonth() + 1).padStart(2, '0');
+    const fechaCorta = `${dia}/${mes}`;
 
     // Send push notification to admin (mobile only)
     try {
-      const notificationBody = `${data.servicio}\n📅 ${fechaFormateada}\n🕐 ${data.hora.substring(0, 5)}`;
+      const notificationBody = `${data.nombre}, ${fechaCorta}, ${data.hora.substring(0, 5)}`;
       
       await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
         method: "POST",
@@ -135,15 +131,15 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
-          title: `ViaggioStyle: ${data.nombre} reservó una cita!`,
+          title: "Nueva cita reservada!",
           body: notificationBody,
-          mobileOnly: true, // Only send to mobile devices
+          mobileOnly: true,
           data: { 
             url: "/control", 
             tag: "new-reservation",
             nombre: data.nombre,
             servicio: data.servicio,
-            fecha: fechaFormateada,
+            fecha: fechaCorta,
             hora: data.hora.substring(0, 5)
           }
         }),
@@ -152,6 +148,15 @@ const handler = async (req: Request): Promise<Response> => {
     } catch (pushError) {
       console.error("Error sending push notification:", pushError);
     }
+
+    // Format date for email (full format)
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    const fechaFormateada = fechaObj.toLocaleDateString('es-ES', options);
 
     // Send notification email to admin
     if (RESEND_API_KEY) {
