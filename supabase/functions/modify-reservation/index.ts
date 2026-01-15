@@ -58,8 +58,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check if the new slot is already booked
-    const { data: existingReserva, error: checkReservaError } = await supabase
+    // Check if the new slot is available
+    const { data: existing, error: checkError } = await supabase
       .from("reservas")
       .select("id")
       .eq("fecha", new_fecha)
@@ -67,40 +67,17 @@ const handler = async (req: Request): Promise<Response> => {
       .neq("id", reserva_id) // Exclude current reservation
       .maybeSingle();
 
-    if (checkReservaError) {
-      console.error("Error checking reservation availability:", checkReservaError);
+    if (checkError) {
+      console.error("Error checking availability:", checkError);
       return new Response(
         JSON.stringify({ error: "Error al verificar disponibilidad" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    if (existingReserva) {
+    if (existing) {
       return new Response(
         JSON.stringify({ error: "Este horario ya está reservado. Por favor, elige otro." }),
-        { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Check if the new slot is blocked
-    const { data: blockedHour, error: checkBlockedError } = await supabase
-      .from("blocked_hours")
-      .select("id")
-      .eq("fecha", new_fecha)
-      .eq("hora", new_hora)
-      .maybeSingle();
-
-    if (checkBlockedError) {
-      console.error("Error checking blocked hours:", checkBlockedError);
-      return new Response(
-        JSON.stringify({ error: "Error al verificar disponibilidad" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    if (blockedHour) {
-      return new Response(
-        JSON.stringify({ error: "Este horario no está disponible. Por favor, elige otro." }),
         { status: 409, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
