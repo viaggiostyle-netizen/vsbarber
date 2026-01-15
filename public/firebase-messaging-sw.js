@@ -30,8 +30,8 @@ messaging.onBackgroundMessage((payload) => {
   
   const notificationOptions = {
     body: body,
-    icon: '/notification-icon.jpg',
-    badge: '/notification-icon.jpg',
+    icon: '/notification-icon.png',
+    badge: '/notification-icon.png',
     tag: data.tag || 'vs-notification',
     data: {
       url: data.url || '/control',
