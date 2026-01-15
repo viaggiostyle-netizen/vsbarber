@@ -17,11 +17,10 @@ interface PushNotificationRequest {
   mobileOnly?: boolean; // Only send to mobile devices
 }
 
-// Check if user agent is from a mobile device
-function isMobileDevice(userAgent: string | null): boolean {
+// Check if user agent is from an Android device
+function isAndroidDevice(userAgent: string | null): boolean {
   if (!userAgent) return false;
-  const mobileKeywords = ['Android', 'iPhone', 'iPad', 'iPod', 'Mobile', 'webOS', 'BlackBerry', 'Opera Mini', 'IEMobile'];
-  return mobileKeywords.some(keyword => userAgent.includes(keyword));
+  return userAgent.includes('Android');
 }
 
 // Get Google OAuth2 access token from service account
@@ -200,9 +199,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Filter tokens - only mobile devices by default
+    // Filter tokens - only Android devices by default
     const filteredTokens = mobileOnly 
-      ? tokens.filter(t => isMobileDevice(t.user_agent))
+      ? tokens.filter(t => isAndroidDevice(t.user_agent))
       : tokens;
 
     console.log(`Total tokens: ${tokens.length}, Mobile tokens: ${filteredTokens.length}, mobileOnly: ${mobileOnly}`);

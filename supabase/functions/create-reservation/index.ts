@@ -130,19 +130,19 @@ const handler = async (req: Request): Promise<Response> => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
-        body: JSON.stringify({
-          title: "Nueva cita reservada!",
-          body: notificationBody,
-          mobileOnly: true,
-          data: { 
-            url: "/control", 
-            tag: "new-reservation",
-            nombre: data.nombre,
-            servicio: data.servicio,
-            fecha: fechaCorta,
-            hora: data.hora.substring(0, 5)
-          }
-        }),
+         body: JSON.stringify({
+           title: "¡Nueva cita reservada!",
+           body: notificationBody,
+           mobileOnly: true,
+           data: { 
+             url: "/control", 
+             tag: "new-reservation",
+             nombre: data.nombre,
+             servicio: data.servicio,
+             fecha: fechaCorta,
+             hora: data.hora.substring(0, 5)
+           }
+         }),
       });
       console.log("Push notification sent to mobile");
     } catch (pushError) {
