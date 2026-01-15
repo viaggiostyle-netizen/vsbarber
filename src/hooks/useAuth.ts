@@ -19,6 +19,8 @@ export function useAuth() {
 
     const setAnonymous = () => {
       if (!mountedRef.current) return;
+      // Reset role cache so a future login re-checks roles reliably
+      lastRoleCheckKeyRef.current = '';
       setSession(null);
       setUser(null);
       setIsAdmin(false);
@@ -40,7 +42,9 @@ export function useAuth() {
 
     const checkAdminRole = async (nextUser: User) => {
       const key = `admin:${nextUser.id}`;
-      if (lastRoleCheckKeyRef.current === key) return;
+      // Prevent duplicate concurrent checks for the same user, but do NOT
+      // permanently cache across logouts/logins (Android can rehydrate late).
+      if (lastRoleCheckKeyRef.current === key && roleLoading) return;
       lastRoleCheckKeyRef.current = key;
 
       if (mountedRef.current) setRoleLoading(true);
@@ -79,6 +83,8 @@ export function useAuth() {
       }
 
       if (nextSession?.user) {
+        // New session => force role re-check (fixes "logged out and became user" cases)
+        lastRoleCheckKeyRef.current = '';
         // Defer role check (avoid making Supabase calls inside callback)
         setTimeout(() => {
           if (mountedRef.current) void checkAdminRole(nextSession.user);
@@ -101,6 +107,8 @@ export function useAuth() {
         setAuthLoading(false);
 
         if (data.session?.user) {
+          // Session restored => force role re-check (fixes late rehydration on Android)
+          lastRoleCheckKeyRef.current = '';
           void checkAdminRole(data.session.user);
         } else {
           setAnonymous();
@@ -143,6 +151,7 @@ export function useAuth() {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
+      lastRoleCheckKeyRef.current = '';
       setIsAdmin(false);
     }
     return { error };
