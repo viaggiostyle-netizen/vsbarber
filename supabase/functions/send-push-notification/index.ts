@@ -92,18 +92,22 @@ async function getAccessToken(): Promise<string> {
 }
 
 // Send FCM message using HTTP v1 API
-// Using data-only messages to avoid double notification display
+// Using notification + data payload for reliable delivery on Android
 async function sendFCMMessage(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Use data-only message to prevent FCM from auto-displaying AND service worker also displaying
+    // Use notification payload for FCM to auto-display on Android/iOS
+    // Plus data payload for click handling
     const message = {
       message: {
         token,
-        // Data-only message - notification handled by service worker only
+        notification: {
+          title,
+          body
+        },
         data: {
           title,
           body,
@@ -114,6 +118,27 @@ async function sendFCMMessage(token: string, title: string, body: string, data?:
         webpush: {
           headers: {
             Urgency: 'high'
+          },
+          notification: {
+            title,
+            body,
+            icon: '/notification-icon.png',
+            badge: '/notification-icon.png',
+            tag: 'vs-reservation',
+            requireInteraction: true
+          },
+          fcm_options: {
+            link: data?.url || '/control'
+          }
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channel_id: 'vs_reservations',
+            icon: 'notification_icon',
+            color: '#D4AF37',
+            default_sound: true,
+            default_vibrate_timings: true
           }
         }
       }
