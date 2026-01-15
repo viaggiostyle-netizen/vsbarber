@@ -14,6 +14,14 @@ interface PushNotificationRequest {
   title: string;
   body: string;
   data?: Record<string, string>;
+  mobileOnly?: boolean; // Only send to mobile devices
+}
+
+// Check if user agent is from a mobile device
+function isMobileDevice(userAgent: string | null): boolean {
+  if (!userAgent) return false;
+  const mobileKeywords = ['Android', 'iPhone', 'iPad', 'iPod', 'Mobile', 'webOS', 'BlackBerry', 'Opera Mini', 'IEMobile'];
+  return mobileKeywords.some(keyword => userAgent.includes(keyword));
 }
 
 // Get Google OAuth2 access token from service account
@@ -91,58 +99,39 @@ async function getAccessToken(): Promise<string> {
   return tokenData.access_token;
 }
 
-// Send FCM message using HTTP v1 API
-// Using notification + data payload for reliable delivery on Android
+// Send FCM message using HTTP v1 API - DATA ONLY payload for reliable SW handling
 async function sendFCMMessage(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Use notification payload for FCM to auto-display on Android/iOS
-    // Plus data payload for click handling
+    // Use DATA-ONLY message - no notification field
+    // This ensures the Service Worker always handles and displays the notification
     const message = {
       message: {
         token,
-        notification: {
-          title,
-          body
-        },
         data: {
           title,
           body,
-          tag: 'vs-reservation',
+          tag: data?.tag || 'vs-reservation',
           url: data?.url || '/control',
+          icon: '/notification-icon.png',
           ...(data || {})
         },
         webpush: {
           headers: {
-            Urgency: 'high'
-          },
-          notification: {
-            title,
-            body,
-            icon: '/notification-icon.png',
-            badge: '/notification-icon.png',
-            tag: 'vs-reservation',
-            requireInteraction: true
-          },
-          fcm_options: {
-            link: data?.url || '/control'
+            Urgency: 'high',
+            TTL: '86400'
           }
         },
         android: {
-          priority: 'high',
-          notification: {
-            channel_id: 'vs_reservations',
-            icon: 'notification_icon',
-            color: '#D4AF37',
-            default_sound: true,
-            default_vibrate_timings: true
-          }
+          priority: 'high'
         }
       }
     };
+
+    console.log("Sending FCM message:", JSON.stringify(message, null, 2));
 
     const response = await fetch(
       `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -177,7 +166,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { title, body, data }: PushNotificationRequest = await req.json();
+    const { title, body, data, mobileOnly = true }: PushNotificationRequest = await req.json();
 
     if (!title || !body) {
       return new Response(
@@ -189,10 +178,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Create Supabase client with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all FCM tokens
+    // Get all FCM tokens with user_agent
     const { data: tokens, error } = await supabase
       .from("fcm_tokens")
-      .select("token");
+      .select("token, user_agent");
 
     if (error) {
       console.error("Error fetching tokens:", error);
@@ -210,13 +199,28 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Sending push to ${tokens.length} devices`);
+    // Filter tokens - only mobile devices by default
+    const filteredTokens = mobileOnly 
+      ? tokens.filter(t => isMobileDevice(t.user_agent))
+      : tokens;
 
-    // Send to all tokens
+    console.log(`Total tokens: ${tokens.length}, Mobile tokens: ${filteredTokens.length}, mobileOnly: ${mobileOnly}`);
+
+    if (filteredTokens.length === 0) {
+      console.log("No mobile tokens found");
+      return new Response(
+        JSON.stringify({ success: true, sent: 0, message: "No mobile devices registered" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log(`Sending push to ${filteredTokens.length} mobile device(s)`);
+
+    // Send to filtered tokens
     let successCount = 0;
     const invalidTokens: string[] = [];
 
-    for (const { token } of tokens) {
+    for (const { token } of filteredTokens) {
       const success = await sendFCMMessage(token, title, body, data);
       if (success) {
         successCount++;

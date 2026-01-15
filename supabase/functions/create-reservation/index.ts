@@ -124,9 +124,9 @@ const handler = async (req: Request): Promise<Response> => {
     };
     const fechaFormateada = fechaObj.toLocaleDateString('es-ES', options);
 
-    // Send push notification to admin
+    // Send push notification to admin (mobile only)
     try {
-      const notificationBody = `📋 ${data.nombre}\n💇 ${data.servicio}\n📅 ${fechaFormateada} - ${data.hora.substring(0, 5)}`;
+      const notificationBody = `${data.servicio}\n📅 ${fechaFormateada}\n🕐 ${data.hora.substring(0, 5)}`;
       
       await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
         method: "POST",
@@ -135,8 +135,9 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
-          title: "ViaggioStyle - Nuevo turno reservado!",
+          title: `ViaggioStyle: ${data.nombre} reservó una cita!`,
           body: notificationBody,
+          mobileOnly: true, // Only send to mobile devices
           data: { 
             url: "/control", 
             tag: "new-reservation",
@@ -147,7 +148,7 @@ const handler = async (req: Request): Promise<Response> => {
           }
         }),
       });
-      console.log("Push notification sent");
+      console.log("Push notification sent to mobile");
     } catch (pushError) {
       console.error("Error sending push notification:", pushError);
     }
