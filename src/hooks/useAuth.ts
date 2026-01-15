@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { ADMIN_EMAILS } from '@/lib/constants';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -24,17 +25,32 @@ export function useAuth() {
       setRoleLoading(false);
     };
 
-    const checkAdminRole = async (userId: string) => {
-      const key = `admin:${userId}`;
+    const ensureCoreAdmin = async (u: User) => {
+      const email = (u.email ?? '').toLowerCase();
+      if (!email || !ADMIN_EMAILS.includes(email)) return;
+
+      try {
+        // Server-side self-heal: guarantees that the core admin emails always
+        // have the admin role even if it was removed accidentally.
+        await supabase.functions.invoke('ensure-core-admin');
+      } catch {
+        // Ignore: we still fall back to the normal role check.
+      }
+    };
+
+    const checkAdminRole = async (nextUser: User) => {
+      const key = `admin:${nextUser.id}`;
       if (lastRoleCheckKeyRef.current === key) return;
       lastRoleCheckKeyRef.current = key;
 
       if (mountedRef.current) setRoleLoading(true);
 
       try {
+        await ensureCoreAdmin(nextUser);
+
         // Use the SECURITY DEFINER function to avoid any RLS issues on user_roles
         const { data, error } = await supabase.rpc('has_role', {
-          _user_id: userId,
+          _user_id: nextUser.id,
           _role: 'admin',
         });
 
@@ -65,7 +81,7 @@ export function useAuth() {
       if (nextSession?.user) {
         // Defer role check (avoid making Supabase calls inside callback)
         setTimeout(() => {
-          if (mountedRef.current) void checkAdminRole(nextSession.user.id);
+          if (mountedRef.current) void checkAdminRole(nextSession.user);
         }, 0);
       } else {
         setAnonymous();
@@ -85,7 +101,7 @@ export function useAuth() {
         setAuthLoading(false);
 
         if (data.session?.user) {
-          void checkAdminRole(data.session.user.id);
+          void checkAdminRole(data.session.user);
         } else {
           setAnonymous();
         }
