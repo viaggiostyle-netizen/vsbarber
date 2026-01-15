@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.create-reservation]
 verify_jwt = false
+
+[functions.send-reminder-notification]
+verify_jwt = false
+
+[functions.modify-reservation]
+verify_jwt = false
