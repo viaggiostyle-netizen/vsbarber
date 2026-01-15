@@ -1,48 +1,84 @@
 // Firebase Messaging Service Worker
-importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
+// Keep firebase SDK version aligned with app dependency to avoid background delivery issues.
+importScripts('https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging-compat.js');
 
-firebase.initializeApp({
-  apiKey: "AIzaSyCshE8btNDsMW4LHCQ2Owup5YC8BszJPfg",
-  authDomain: "viaggiostyle-5977a.firebaseapp.com",
-  projectId: "viaggiostyle-5977a",
-  storageBucket: "viaggiostyle-5977a.firebasestorage.app",
-  messagingSenderId: "96185700264",
-  appId: "1:96185700264:web:afba72e65d5884f711579d"
+let firebaseReady = false;
+
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyCshE8btNDsMW4LHCQ2Owup5YC8BszJPfg",
+    authDomain: "viaggiostyle-5977a.firebaseapp.com",
+    projectId: "viaggiostyle-5977a",
+    storageBucket: "viaggiostyle-5977a.firebasestorage.app",
+    messagingSenderId: "96185700264",
+    appId: "1:96185700264:web:afba72e65d5884f711579d"
+  });
+
+  firebaseReady = true;
+} catch (e) {
+  console.error('[firebase-messaging-sw.js] Firebase init failed:', e);
+}
+
+const messaging = firebaseReady ? firebase.messaging() : null;
+
+// Fallback: if Firebase messaging isn't available, still try to display "notification" payloads.
+self.addEventListener('push', (event) => {
+  if (firebaseReady) return; // Firebase will handle it
+  try {
+    const payload = event.data?.json?.() ?? null;
+    const title = payload?.notification?.title || payload?.data?.title || 'ViaggioStyle';
+    const body = payload?.notification?.body || payload?.data?.body || '';
+
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body,
+        icon: '/notification-icon.png',
+        badge: '/notification-icon.png',
+        tag: payload?.data?.tag || 'vs-notification',
+        data: { url: payload?.data?.url || '/control', ...(payload?.data || {}) },
+        requireInteraction: true,
+      })
+    );
+  } catch (e) {
+    console.error('[firebase-messaging-sw.js] push fallback failed:', e);
+  }
 });
-
-const messaging = firebase.messaging();
 
 // Handle background messages ONLY (foreground is handled by the app)
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message:', payload);
-  
-  // IMPORTANT: Only show notification if the app sent data-only message
-  // If there's a notification field, FCM will auto-display it, so we skip
-  if (payload.notification) {
-    console.log('[firebase-messaging-sw.js] Notification handled by FCM, skipping manual display');
-    return;
-  }
-  
-  const data = payload.data || {};
-  const notificationTitle = data.title || 'ViaggioStyle';
-  const body = data.body || '';
-  
-  const notificationOptions = {
-    body: body,
-    icon: '/notification-icon.png',
-    badge: '/notification-icon.png',
-    tag: data.tag || 'vs-notification',
-    data: {
-      url: data.url || '/control',
-      ...data
-    },
-    requireInteraction: true,
-    vibrate: [200, 100, 200]
-  };
+if (messaging) {
+  messaging.onBackgroundMessage((payload) => {
+    console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+    // IMPORTANT: Only show notification if the app sent data-only message
+    // If there's a notification field, FCM will auto-display it, so we skip
+    if (payload.notification) {
+      console.log('[firebase-messaging-sw.js] Notification handled by FCM, skipping manual display');
+      return;
+    }
+
+    const data = payload.data || {};
+    const notificationTitle = data.title || 'ViaggioStyle';
+    const body = data.body || '';
+
+    const notificationOptions = {
+      body: body,
+      icon: '/notification-icon.png',
+      badge: '/notification-icon.png',
+      tag: data.tag || 'vs-notification',
+      data: {
+        url: data.url || '/control',
+        ...data
+      },
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  });
+} else {
+  console.warn('[firebase-messaging-sw.js] Firebase messaging not available; using push fallback only');
+}
 
 // Handle notification click - redirect to admin panel
 self.addEventListener('notificationclick', (event) => {
