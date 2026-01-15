@@ -50,16 +50,14 @@ if (messaging) {
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-    // IMPORTANT: Only show notification if the app sent data-only message
-    // If there's a notification field, FCM will auto-display it, so we skip
-    if (payload.notification) {
-      console.log('[firebase-messaging-sw.js] Notification handled by FCM, skipping manual display');
-      return;
-    }
+    // On Web, "notification" payloads are NOT reliably auto-displayed when you
+    // also register onBackgroundMessage, so we ALWAYS display a notification here.
+    // To avoid duplicates, we rely on a stable tag.
+
 
     const data = payload.data || {};
-    const notificationTitle = data.title || 'ViaggioStyle';
-    const body = data.body || '';
+    const notificationTitle = payload.notification?.title || data.title || 'ViaggioStyle';
+    const body = payload.notification?.body || data.body || '';
 
     const notificationOptions = {
       body: body,
