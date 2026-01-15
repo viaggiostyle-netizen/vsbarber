@@ -22,51 +22,80 @@ try {
 
 const messaging = firebaseReady ? firebase.messaging() : null;
 
-// Always try to display a notification from any push payload.
-// Using event.waitUntil() helps prevent Android/Chrome from showing the generic
-// "Este sitio se actualizó en segundo plano" message when no notification is displayed.
+// CRITICAL: Handle ALL push events with event.waitUntil() to prevent Android 13 
+// from showing "Este sitio se actualizó en segundo plano" message.
+// This MUST resolve a showNotification() promise before the event terminates.
 self.addEventListener('push', (event) => {
-  try {
-    const payload = event.data?.json?.() ?? null;
-    const title = payload?.notification?.title || payload?.data?.title || 'ViaggioStyle';
-    const body = payload?.notification?.body || payload?.data?.body || '';
-
-    // If there's nothing meaningful to show, do nothing.
-    if (!title && !body) return;
-
-    event.waitUntil(
-      self.registration.showNotification(title, {
-        body,
-        icon: payload?.data?.icon || '/vs-logo.png',
-        badge: payload?.data?.badge || '/vs-logo.png',
-        tag: payload?.data?.tag || 'vs-notification',
-        data: { url: payload?.data?.url || '/control', ...(payload?.data || {}) },
-        requireInteraction: true,
-        vibrate: [200, 100, 200],
-        renotify: true
-      })
-    );
-  } catch (e) {
-    console.error('[firebase-messaging-sw.js] push handler failed:', e);
-  }
+  console.log('[firebase-messaging-sw.js] Push event received');
+  
+  // Always wrap in waitUntil to keep SW alive until notification is shown
+  event.waitUntil(
+    (async () => {
+      try {
+        let payload = null;
+        try {
+          payload = event.data?.json?.() ?? null;
+        } catch (e) {
+          console.log('[firebase-messaging-sw.js] Could not parse payload as JSON');
+        }
+        
+        console.log('[firebase-messaging-sw.js] Payload:', JSON.stringify(payload));
+        
+        // Extract data from either data-only or notification payload
+        const data = payload?.data || {};
+        const notification = payload?.notification || {};
+        
+        // Build notification content with fallbacks
+        const title = data.title || notification.title || 'ViaggioStyle';
+        const body = data.body || notification.body || 'Nueva notificación';
+        
+        console.log('[firebase-messaging-sw.js] Showing notification:', title, body);
+        
+        // Always show notification - this is critical for Android 13
+        return self.registration.showNotification(title, {
+          body: body,
+          icon: '/vs-logo.png',
+          badge: '/vs-logo.png',
+          tag: data.tag || 'vs-notification',
+          data: { 
+            url: data.url || '/control',
+            ...data 
+          },
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          renotify: true
+        });
+      } catch (e) {
+        console.error('[firebase-messaging-sw.js] Push handler error:', e);
+        // Even on error, show a fallback notification to prevent generic message
+        return self.registration.showNotification('ViaggioStyle', {
+          body: 'Nueva notificación',
+          icon: '/vs-logo.png',
+          badge: '/vs-logo.png',
+          tag: 'vs-fallback',
+          data: { url: '/control' },
+          requireInteraction: true
+        });
+      }
+    })()
+  );
 });
 
-// Handle background messages ONLY (foreground is handled by the app)
+// Handle Firebase background messages (backup handler)
 if (messaging) {
   messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message:', payload);
-
+    console.log('[firebase-messaging-sw.js] onBackgroundMessage received:', payload);
+    
     const data = payload.data || {};
-    const notificationTitle = data.title || 'ViaggioStyle';
-    const body = data.body || '';
-
-    console.log('[firebase-messaging-sw.js] Displaying notification:', notificationTitle, body);
-
-    const notificationOptions = {
+    const title = data.title || 'ViaggioStyle';
+    const body = data.body || 'Nueva notificación';
+    
+    // Show notification from background message
+    return self.registration.showNotification(title, {
       body: body,
-      icon: data.icon || '/vs-logo.png',
-      badge: data.badge || '/vs-logo.png',
-      tag: data.tag || 'vs-notification',
+      icon: '/vs-logo.png',
+      badge: '/vs-logo.png',
+      tag: data.tag || 'vs-background',
       data: {
         url: data.url || '/control',
         ...data
@@ -74,12 +103,10 @@ if (messaging) {
       requireInteraction: true,
       vibrate: [200, 100, 200],
       renotify: true
-    };
-
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    });
   });
 } else {
-  console.warn('[firebase-messaging-sw.js] Firebase messaging not available; using push fallback only');
+  console.warn('[firebase-messaging-sw.js] Firebase messaging not available');
 }
 
 // Handle notification click - redirect to admin panel
@@ -87,7 +114,6 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification clicked:', event);
   event.notification.close();
   
-  // Always redirect to /control (admin panel)
   const urlToOpen = event.notification.data?.url || '/control';
   
   event.waitUntil(
@@ -104,4 +130,15 @@ self.addEventListener('notificationclick', (event) => {
       }
     })
   );
+});
+
+// Log service worker installation
+self.addEventListener('install', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker installed');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker activated');
+  event.waitUntil(clients.claim());
 });
