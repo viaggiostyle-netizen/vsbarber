@@ -11,7 +11,6 @@ export interface Reserva {
   precio: number;
   fecha: string;
   hora: string;
-  estado: string;
   created_at: string;
 }
 
