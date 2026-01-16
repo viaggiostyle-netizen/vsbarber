@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
@@ -59,29 +59,6 @@ const Control = () => {
         toast.error('Error al cancelar la cita');
       }
     }
-  };
-
-  // Generate WhatsApp link with pre-filled message
-  const generateWhatsAppLink = (reserva: typeof reservas[0]) => {
-    // Clean phone number: remove spaces, dashes, + signs
-    const cleanPhone = reserva.telefono.replace(/[\s\-\+]/g, '');
-    
-    // Format time (remove seconds if present)
-    const horaFormatted = reserva.hora.substring(0, 5);
-    
-    // Build message with exact template
-    const message = `¡Hola ${reserva.nombre}! Te escribo de VIAGGIOSTYLE Barber. Te recuerdo que tenes una cita en 2 horas.
-
-Servicio: ${reserva.servicio}
-Hora: ${horaFormatted}
-Precio: ${formatPrice(reserva.precio)}
-
-Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https://vsbarber.lovable.app y cancelala o modificala. ¡Te esperamos!`;
-
-    // URL encode the message
-    const encodedMessage = encodeURIComponent(message);
-    
-    return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
   };
 
   const FullscreenLoader = ({ label }: { label: string }) => (
@@ -224,22 +201,13 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                               {reserva.servicio}
                             </span>
                           </div>
-                                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                            <span className="capitalize">
-                                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
-                                            </span>
-                                            <span>{reserva.hora.substring(0, 5)}</span>
-                                            <span>{formatPrice(reserva.precio)}</span>
-                                          </div>
-                                          <a
-                                            href={generateWhatsAppLink(reserva)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
-                                          >
-                                            <MessageCircle className="w-4 h-4" />
-                                            {reserva.telefono}
-                                          </a>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="capitalize">
+                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
+                            </span>
+                            <span>{reserva.hora.substring(0, 5)}</span>
+                            <span>{formatPrice(reserva.precio)}</span>
+                          </div>
                         </div>
                         <Button
                           variant="outline"
