@@ -41,6 +41,57 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes: {
+        Row: {
+          bloqueado: boolean
+          citas_ausente_aviso: number
+          citas_canceladas: number
+          citas_completadas: number
+          citas_no_show: number
+          created_at: string
+          email: string
+          id: string
+          motivo_bloqueo: string | null
+          nombre: string
+          notas: string | null
+          telefono: string
+          total_citas: number
+          updated_at: string
+        }
+        Insert: {
+          bloqueado?: boolean
+          citas_ausente_aviso?: number
+          citas_canceladas?: number
+          citas_completadas?: number
+          citas_no_show?: number
+          created_at?: string
+          email: string
+          id?: string
+          motivo_bloqueo?: string | null
+          nombre: string
+          notas?: string | null
+          telefono: string
+          total_citas?: number
+          updated_at?: string
+        }
+        Update: {
+          bloqueado?: boolean
+          citas_ausente_aviso?: number
+          citas_canceladas?: number
+          citas_completadas?: number
+          citas_no_show?: number
+          created_at?: string
+          email?: string
+          id?: string
+          motivo_bloqueo?: string | null
+          nombre?: string
+          notas?: string | null
+          telefono?: string
+          total_citas?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fcm_tokens: {
         Row: {
           created_at: string
@@ -69,6 +120,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          estado: Database["public"]["Enums"]["estado_cita"]
           fecha: string
           hora: string
           id: string
@@ -80,6 +132,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          estado?: Database["public"]["Enums"]["estado_cita"]
           fecha: string
           hora: string
           id?: string
@@ -91,6 +144,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          estado?: Database["public"]["Enums"]["estado_cita"]
           fecha?: string
           hora?: string
           id?: string
@@ -116,6 +170,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vacation_blocks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fecha_fin: string
+          fecha_inicio: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fecha_fin: string
+          fecha_inicio: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fecha_fin?: string
+          fecha_inicio?: string
+          id?: string
+          motivo?: string | null
         }
         Relationships: []
       }
@@ -157,9 +238,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_date_blocked: { Args: { check_date: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
+      estado_cita:
+        | "pendiente"
+        | "completada"
+        | "ausente_con_aviso"
+        | "no_show"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -288,6 +376,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      estado_cita: [
+        "pendiente",
+        "completada",
+        "ausente_con_aviso",
+        "no_show",
+        "cancelada",
+      ],
     },
   },
 } as const
