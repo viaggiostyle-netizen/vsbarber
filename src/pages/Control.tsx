@@ -5,16 +5,20 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
+import { useReservas, useTodayStats } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, UserCheck } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
+import { VacationBlockManager } from '@/components/VacationBlockManager';
 import RevenueStats from '@/components/RevenueStats';
 import { AdminRoleManager } from '@/components/AdminRoleManager';
+import { AppointmentStatusManager } from '@/components/AppointmentStatusManager';
+import { ClientsSection } from '@/components/ClientsSection';
 import vsLogo from '@/assets/vs-logo.jpg';
 
 const Control = () => {
@@ -22,7 +26,6 @@ const Control = () => {
   const navigate = useNavigate();
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
-  const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
   const [graceExpired, setGraceExpired] = useState(false);
 
@@ -48,17 +51,6 @@ const Control = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
-      try {
-        await deleteReserva.mutateAsync(id);
-        toast.success('Cita cancelada correctamente');
-      } catch (error) {
-        toast.error('Error al cancelar la cita');
-      }
-    }
   };
 
   // Generate WhatsApp link with pre-filled message
@@ -178,10 +170,14 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="reservas" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="reservas" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">Reservas</span>
+            </TabsTrigger>
+            <TabsTrigger value="clientes" className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Clientes</span>
             </TabsTrigger>
             <TabsTrigger value="horarios" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -199,7 +195,7 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
 
           <TabsContent value="reservas" className="space-y-4">
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
+              <Calendar className="w-5 h-5" />
               <h2 className="text-lg font-semibold">Todas las reservas</h2>
             </div>
 
@@ -213,54 +209,68 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
               </Card>
             ) : (
               <div className="space-y-3">
-                {reservas.map((reserva) => (
-                  <Card key={reserva.id}>
-                    <CardContent className="py-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold">{reserva.nombre}</span>
-                            <span className="text-sm px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                              {reserva.servicio}
-                            </span>
+                {reservas.map((reserva) => {
+                  const estadoColor = 
+                    reserva.estado === 'completada' ? 'bg-green-500/20 text-green-400' :
+                    reserva.estado === 'ausente_con_aviso' ? 'bg-yellow-500/20 text-yellow-400' :
+                    reserva.estado === 'no_show' ? 'bg-orange-500/20 text-orange-400' :
+                    reserva.estado === 'cancelada' ? 'bg-destructive/20 text-destructive' :
+                    'bg-muted text-muted-foreground';
+                  
+                  return (
+                    <Card key={reserva.id}>
+                      <CardContent className="py-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="font-semibold">{reserva.nombre}</span>
+                              <span className="text-sm px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                {reserva.servicio}
+                              </span>
+                              {reserva.estado !== 'pendiente' && (
+                                <Badge variant="outline" className={estadoColor}>
+                                  {reserva.estado.replace('_', ' ')}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                              <span className="capitalize">
+                                {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
+                              </span>
+                              <span>{reserva.hora.substring(0, 5)}</span>
+                              <span>{formatPrice(reserva.precio)}</span>
+                            </div>
+                            <a
+                              href={generateWhatsAppLink(reserva)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              {reserva.telefono}
+                            </a>
                           </div>
-                                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                            <span className="capitalize">
-                                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
-                                            </span>
-                                            <span>{reserva.hora.substring(0, 5)}</span>
-                                            <span>{formatPrice(reserva.precio)}</span>
-                                          </div>
-                                          <a
-                                            href={generateWhatsAppLink(reserva)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
-                                          >
-                                            <MessageCircle className="w-4 h-4" />
-                                            {reserva.telefono}
-                                          </a>
+                          <AppointmentStatusManager reserva={reserva} />
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(reserva.id)}
-                          disabled={deleteReserva.isPending}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Cancelar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="horarios">
+          <TabsContent value="clientes" className="space-y-4">
+            <div className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5" />
+              <h2 className="text-lg font-semibold">Clientes</h2>
+            </div>
+            <ClientsSection />
+          </TabsContent>
+
+          <TabsContent value="horarios" className="space-y-6">
             <HourBlockManager />
+            <VacationBlockManager />
           </TabsContent>
 
           <TabsContent value="ingresos">
