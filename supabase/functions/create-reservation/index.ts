@@ -131,7 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         },
          body: JSON.stringify({
-           title: "¡Nueva cita agendada!",
+           title: "¡Nueva cita reservada!",
            body: notificationBody,
            mobileOnly: true,
            data: { 

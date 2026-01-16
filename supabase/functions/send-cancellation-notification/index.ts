@@ -130,7 +130,7 @@ const handler = async (req: Request): Promise<Response> => {
         },
          body: JSON.stringify({
            title: "¡Cita cancelada!",
-           body: `${reserva.nombre}, ha cancelado su cita`,
+           body: `${reserva.nombre}, ha cancelado/modificado su cita`,
            mobileOnly: true,
            data: { url: "/control", tag: "cancellation" }
          }),
