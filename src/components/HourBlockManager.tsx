@@ -10,7 +10,6 @@ import { generateTimeSlots, getMinDate } from '@/lib/constants';
 import { toast } from 'sonner';
 import { Lock, Unlock, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { VacationBlockManager } from './VacationBlockManager';
 
 export function HourBlockManager() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -70,7 +69,6 @@ export function HourBlockManager() {
   const isLoading = loadingBlocked || loadingBooked;
 
   return (
-    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -173,9 +171,5 @@ export function HourBlockManager() {
         </div>
       </CardContent>
     </Card>
-
-    {/* Vacation Block Manager */}
-    <VacationBlockManager />
-    </>
   );
 }

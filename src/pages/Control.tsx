@@ -6,18 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
-import { useReservas, useTodayStats } from '@/hooks/useReservas';
+import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, UserCheck } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
 import RevenueStats from '@/components/RevenueStats';
 import { AdminRoleManager } from '@/components/AdminRoleManager';
-import { ReservaStatusDialog } from '@/components/ReservaStatusDialog';
-import { PendingStatusAlert } from '@/components/PendingStatusAlert';
-import { ClientesList } from '@/components/ClientesList';
 import vsLogo from '@/assets/vs-logo.jpg';
 
 const Control = () => {
@@ -25,6 +22,7 @@ const Control = () => {
   const navigate = useNavigate();
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
+  const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
   const [graceExpired, setGraceExpired] = useState(false);
 
@@ -50,6 +48,17 @@ const Control = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
+      try {
+        await deleteReserva.mutateAsync(id);
+        toast.success('Cita cancelada correctamente');
+      } catch (error) {
+        toast.error('Error al cancelar la cita');
+      }
+    }
   };
 
   // Generate WhatsApp link with pre-filled message
@@ -169,14 +178,10 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="reservas" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="reservas" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Reservas</span>
-            </TabsTrigger>
-            <TabsTrigger value="clientes" className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">Clientes</span>
             </TabsTrigger>
             <TabsTrigger value="horarios" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -194,11 +199,9 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
 
           <TabsContent value="reservas" className="space-y-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
+              <Users className="w-5 h-5" />
               <h2 className="text-lg font-semibold">Todas las reservas</h2>
             </div>
-
-            <PendingStatusAlert reservas={reservas} />
 
             {loadingReservas ? (
               <p className="text-muted-foreground py-8 text-center">Cargando reservas...</p>
@@ -221,37 +224,39 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                               {reserva.servicio}
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                            <span className="capitalize">
-                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
-                            </span>
-                            <span>{reserva.hora.substring(0, 5)}</span>
-                            <span>{formatPrice(reserva.precio)}</span>
-                          </div>
-                          <a
-                            href={generateWhatsAppLink(reserva)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            {reserva.telefono}
-                          </a>
+                                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                            <span className="capitalize">
+                                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
+                                            </span>
+                                            <span>{reserva.hora.substring(0, 5)}</span>
+                                            <span>{formatPrice(reserva.precio)}</span>
+                                          </div>
+                                          <a
+                                            href={generateWhatsAppLink(reserva)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
+                                          >
+                                            <MessageCircle className="w-4 h-4" />
+                                            {reserva.telefono}
+                                          </a>
                         </div>
-                        <ReservaStatusDialog
-                          reservaId={reserva.id}
-                          currentStatus={(reserva as any).estado || 'pendiente'}
-                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(reserva.id)}
+                          disabled={deleteReserva.isPending}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Cancelar
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="clientes" className="space-y-4">
-            <ClientesList />
           </TabsContent>
 
           <TabsContent value="horarios">
