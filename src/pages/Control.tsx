@@ -5,11 +5,21 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, AlertTriangle } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
@@ -25,6 +35,7 @@ const Control = () => {
   const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
   const [graceExpired, setGraceExpired] = useState(false);
+  const [cancelingReservaId, setCancelingReservaId] = useState<string | null>(null);
 
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
@@ -50,14 +61,16 @@ const Control = () => {
     navigate('/');
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
-      try {
-        await deleteReserva.mutateAsync(id);
-        toast.success('Cita cancelada correctamente');
-      } catch (error) {
-        toast.error('Error al cancelar la cita');
-      }
+  const handleConfirmCancel = async () => {
+    if (!cancelingReservaId) return;
+    
+    try {
+      await deleteReserva.mutateAsync(cancelingReservaId);
+      toast.success('Cita cancelada correctamente');
+    } catch (error) {
+      toast.error('Error al cancelar la cita');
+    } finally {
+      setCancelingReservaId(null);
     }
   };
 
@@ -242,14 +255,14 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                                           </a>
                         </div>
                         <Button
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
-                          onClick={() => handleDelete(reserva.id)}
+                          onClick={() => setCancelingReservaId(reserva.id)}
                           disabled={deleteReserva.isPending}
-                          className="text-destructive hover:text-destructive"
+                          className="bg-red-600 hover:bg-red-700 text-white"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Cancelar
+                          Cancelar cita
                         </Button>
                       </div>
                     </CardContent>
@@ -275,6 +288,31 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
             <AdminRoleManager />
           </TabsContent>
         </Tabs>
+
+        {/* Cancel Confirmation Dialog */}
+        <AlertDialog open={!!cancelingReservaId} onOpenChange={(open) => !open && setCancelingReservaId(null)}>
+          <AlertDialogContent className="bg-card border border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                ¿Cancelar tu cita?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. El horario del cliente quedará disponible para otros clientes. Asegurate de avisar al cliente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmCancel}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={deleteReserva.isPending}
+              >
+                {deleteReserva.isPending ? 'Cancelando...' : 'Sí, cancelar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

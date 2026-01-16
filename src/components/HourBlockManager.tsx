@@ -4,12 +4,14 @@ import { es } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useBlockHour, useUnblockHour, useBlockedHoursForDate } from '@/hooks/useBlockedHours';
 import { useReservasByDate } from '@/hooks/useReservas';
 import { generateTimeSlots, getMinDate } from '@/lib/constants';
 import { toast } from 'sonner';
-import { Lock, Unlock, CalendarDays } from 'lucide-react';
+import { Lock, Unlock, CalendarDays, CalendarOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VacationBlockManager } from './VacationBlockManager';
 
 export function HourBlockManager() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -69,107 +71,128 @@ export function HourBlockManager() {
   const isLoading = loadingBlocked || loadingBooked;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarDays className="w-5 h-5" />
-          Gestión de Horarios
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Calendar */}
-          <div className="flex justify-center">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              disabled={(date) => isBefore(date, getMinDate())}
-              locale={es}
-              className="rounded-md border pointer-events-auto"
-            />
-          </div>
+    <div className="space-y-6">
+      <Tabs defaultValue="horas" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="horas" className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            Horarios por Día
+          </TabsTrigger>
+          <TabsTrigger value="dias" className="flex items-center gap-2">
+            <CalendarOff className="w-4 h-4" />
+            Bloquear Días
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Time slots */}
-          <div className="flex-1 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
-              </p>
-              {isToday(selectedDate) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBlockPastHours}
-                  disabled={blockHour.isPending}
-                >
-                  <Lock className="w-4 h-4 mr-2" />
-                  Bloquear horas pasadas
-                </Button>
-              )}
-            </div>
+        <TabsContent value="horas">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5" />
+                Gestión de Horarios
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col lg:flex-row gap-6">
+                {/* Calendar */}
+                <div className="flex justify-center">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    disabled={(date) => isBefore(date, getMinDate())}
+                    locale={es}
+                    className="rounded-md border pointer-events-auto"
+                  />
+                </div>
 
-            {isLoading ? (
-              <p className="text-muted-foreground text-center py-4">Cargando...</p>
-            ) : allSlots.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                No hay horarios configurados para este día
-              </p>
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                {allSlots.map((slot) => {
-                  const isBlocked = blockedHourStrings.includes(slot);
-                  const isBooked = bookedHours.some(b => b.substring(0, 5) === slot);
-                  const isPast = isHourPast(slot);
-                  const isPending = blockHour.isPending || unblockHour.isPending;
+                {/* Time slots */}
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
+                    </p>
+                    {isToday(selectedDate) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBlockPastHours}
+                        disabled={blockHour.isPending}
+                      >
+                        <Lock className="w-4 h-4 mr-2" />
+                        Bloquear horas pasadas
+                      </Button>
+                    )}
+                  </div>
 
-                  return (
-                    <button
-                      key={slot}
-                      onClick={() => !isBooked && handleToggleBlock(slot)}
-                      disabled={isBooked || isPending}
-                      className={cn(
-                        'py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 relative',
-                        'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                        isBooked && 'bg-primary/20 text-primary cursor-not-allowed',
-                        isBlocked && !isBooked && 'bg-destructive/20 text-destructive border-2 border-destructive/50',
-                        isPast && !isBlocked && !isBooked && 'bg-muted text-muted-foreground opacity-60',
-                        !isBlocked && !isBooked && !isPast && 'bg-card border border-border hover:border-foreground/50'
-                      )}
-                      title={
-                        isBooked ? 'Reservado' : 
-                        isBlocked ? 'Click para desbloquear' : 
-                        'Click para bloquear'
-                      }
-                    >
-                      <span className="flex items-center justify-center gap-1">
-                        {slot}
-                        {isBlocked && !isBooked && <Lock className="w-3 h-3" />}
-                        {isBooked && <span className="text-xs">📅</span>}
-                      </span>
-                    </button>
-                  );
-                })}
+                  {isLoading ? (
+                    <p className="text-muted-foreground text-center py-4">Cargando...</p>
+                  ) : allSlots.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">
+                      No hay horarios configurados para este día
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                      {allSlots.map((slot) => {
+                        const isBlocked = blockedHourStrings.includes(slot);
+                        const isBooked = bookedHours.some(b => b.substring(0, 5) === slot);
+                        const isPast = isHourPast(slot);
+                        const isPending = blockHour.isPending || unblockHour.isPending;
+
+                        return (
+                          <button
+                            key={slot}
+                            onClick={() => !isBooked && handleToggleBlock(slot)}
+                            disabled={isBooked || isPending}
+                            className={cn(
+                              'py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 relative',
+                              'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                              isBooked && 'bg-primary/20 text-primary cursor-not-allowed',
+                              isBlocked && !isBooked && 'bg-destructive/20 text-destructive border-2 border-destructive/50',
+                              isPast && !isBlocked && !isBooked && 'bg-muted text-muted-foreground opacity-60',
+                              !isBlocked && !isBooked && !isPast && 'bg-card border border-border hover:border-foreground/50'
+                            )}
+                            title={
+                              isBooked ? 'Reservado' : 
+                              isBlocked ? 'Click para desbloquear' : 
+                              'Click para bloquear'
+                            }
+                          >
+                            <span className="flex items-center justify-center gap-1">
+                              {slot}
+                              {isBlocked && !isBooked && <Lock className="w-3 h-3" />}
+                              {isBooked && <span className="text-xs">📅</span>}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t">
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-card border border-border"></span>
+                      Disponible
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-destructive/20 border-2 border-destructive/50"></span>
+                      Bloqueado
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-primary/20"></span>
+                      Reservado
+                    </span>
+                  </div>
+                </div>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t">
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-card border border-border"></span>
-                Disponible
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-destructive/20 border-2 border-destructive/50"></span>
-                Bloqueado
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-primary/20"></span>
-                Reservado
-              </span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        <TabsContent value="dias">
+          <VacationBlockManager />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

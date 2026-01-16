@@ -170,7 +170,7 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
           disabled={!selectedDate || !selectedTime || isSubmitting}
           className="w-full"
         >
-          {isSubmitting ? 'Agendando...' : 'Agendar reserva'}
+          {isSubmitting ? 'Agendando...' : 'Agendar cita'}
         </Button>
         <Button
           type="button"
