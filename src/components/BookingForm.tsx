@@ -12,6 +12,8 @@ import { TimeSlots } from './TimeSlots';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsDateBlocked } from '@/hooks/useIsDateBlocked';
+import { Umbrella } from 'lucide-react';
 
 const bookingSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
@@ -39,6 +41,7 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  const { data: isDateBlocked = false } = useIsDateBlocked(selectedDate);
 
   const {
     register,
@@ -154,12 +157,26 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
 
       {selectedDate && (
         <div className="space-y-4">
-          <Label>Horarios disponibles para {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</Label>
-          <TimeSlots
-            date={selectedDate}
-            selected={selectedTime}
-            onSelect={setSelectedTime}
-          />
+          {isDateBlocked ? (
+            <div className="flex flex-col items-center gap-3 py-8 px-4 rounded-lg bg-destructive/10 border border-destructive/30">
+              <Umbrella className="w-12 h-12 text-destructive" />
+              <p className="text-center text-destructive font-medium">
+                No disponible porque el barbero está de vacaciones
+              </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Por favor selecciona otra fecha
+              </p>
+            </div>
+          ) : (
+            <>
+              <Label>Horarios disponibles para {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</Label>
+              <TimeSlots
+                date={selectedDate}
+                selected={selectedTime}
+                onSelect={setSelectedTime}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -167,7 +184,7 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         <Button
           type="submit"
           size="lg"
-          disabled={!selectedDate || !selectedTime || isSubmitting}
+          disabled={!selectedDate || !selectedTime || isSubmitting || isDateBlocked}
           className="w-full"
         >
           {isSubmitting ? 'Agendando...' : 'Agendar reserva'}

@@ -6,12 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useReservas, useTodayStats } from '@/hooks/useReservas';
 import { useUpdateReservaEstado } from '@/hooks/useUpdateReservaEstado';
+import { useDeleteCliente, useClientes } from '@/hooks/useClientes';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, Edit2, UserRound } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, Edit2, UserRound, Trash2 } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
@@ -30,10 +41,13 @@ const Control = () => {
   const navigate = useNavigate();
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
+  const { data: clientes = [] } = useClientes();
   const updateEstado = useUpdateReservaEstado();
+  const deleteCliente = useDeleteCliente();
   const [showSplash, setShowSplash] = useState(true);
   const [editingReserva, setEditingReserva] = useState<Reserva | null>(null);
   const [graceExpired, setGraceExpired] = useState(false);
+  const [deletingClienteFromReserva, setDeletingClienteFromReserva] = useState<Reserva | null>(null);
 
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
@@ -121,6 +135,31 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
       </div>
     </div>
   );
+
+  const findClienteByReserva = (reserva: Reserva) => {
+    return clientes.find(c => 
+      c.email.toLowerCase() === reserva.email.toLowerCase() && 
+      c.telefono === reserva.telefono
+    );
+  };
+
+  const handleDeleteClienteFromReserva = async () => {
+    if (!deletingClienteFromReserva) return;
+    const cliente = findClienteByReserva(deletingClienteFromReserva);
+    if (!cliente) {
+      toast.error('No se encontró el cliente');
+      setDeletingClienteFromReserva(null);
+      return;
+    }
+    try {
+      await deleteCliente.mutateAsync(cliente.id);
+      toast.success('Cliente eliminado correctamente');
+    } catch {
+      toast.error('Error al eliminar el cliente');
+    } finally {
+      setDeletingClienteFromReserva(null);
+    }
+  };
 
   // Show loading while checking auth and role
   if (loading) {
@@ -273,15 +312,29 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                             {reserva.telefono}
                           </a>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingReserva(reserva)}
-                          disabled={updateEstado.isPending}
-                        >
-                          <Edit2 className="w-4 h-4 mr-2" />
-                          Editar
-                        </Button>
+                        <div className="flex gap-2">
+                          {findClienteByReserva(reserva) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeletingClienteFromReserva(reserva)}
+                              disabled={deleteCliente.isPending}
+                              title="Eliminar cliente"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingReserva(reserva)}
+                            disabled={updateEstado.isPending}
+                          >
+                            <Edit2 className="w-4 h-4 mr-2" />
+                            Editar
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -319,6 +372,30 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
           onUpdateEstado={handleUpdateEstado}
           isPending={updateEstado.isPending}
         />
+
+        {/* Delete Cliente from Reserva Confirmation */}
+        <AlertDialog open={!!deletingClienteFromReserva} onOpenChange={(open) => !open && setDeletingClienteFromReserva(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará permanentemente el historial del cliente{' '}
+                <span className="font-semibold">{deletingClienteFromReserva?.nombre}</span> ({deletingClienteFromReserva?.email}).
+                <br />
+                Las reservas existentes no se eliminarán.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteClienteFromReserva}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
