@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type EstadoCita = Database['public']['Enums']['estado_cita'];
 
 export interface Reserva {
   id: string;
@@ -11,6 +14,7 @@ export interface Reserva {
   precio: number;
   fecha: string;
   hora: string;
+  estado: EstadoCita;
   created_at: string;
 }
 
@@ -113,11 +117,14 @@ export function useTodayStats() {
       if (error) throw error;
       
       const reservas = data as Reserva[];
-      const totalIngresos = reservas.reduce((sum, r) => sum + r.precio, 0);
+      // Only count completed reservations for revenue
+      const completadas = reservas.filter(r => r.estado === 'completada');
+      const totalIngresos = completadas.reduce((sum, r) => sum + r.precio, 0);
       
       return {
-        count: reservas.length,
-        ingresos: totalIngresos,
+        count: reservas.length, // Total reservations for the day
+        completedCount: completadas.length, // Only completed
+        ingresos: totalIngresos, // Revenue only from completed
         reservas,
       };
     },
