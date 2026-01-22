@@ -95,33 +95,39 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (body.action === "add") {
       const email = body.email?.trim().toLowerCase();
-      if (!email || email.length > 255) return json({ success: false, error: "Email inválido" }, 400);
+      if (!email || email.length > 255) return json({ success: false, error: "Email inválido" });
 
       // Find user by email using admin API
       let targetUserId: string | null = null;
       let page = 1;
       const perPage = 200;
 
-      while (page <= 20) {
-        const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
-        if (error) {
-          console.log("List users error:", error);
-          throw error;
-        }
+      try {
+        while (page <= 20) {
+          const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
+          if (error) {
+            console.log("List users error:", error);
+            return json({ success: false, error: "Error al buscar usuarios" });
+          }
 
-        const users = data?.users ?? [];
-        const match = users.find((u: any) => (u.email ?? "").toLowerCase() === email);
-        if (match?.id) {
-          targetUserId = match.id;
-          break;
-        }
+          const users = data?.users ?? [];
+          const match = users.find((u: any) => (u.email ?? "").toLowerCase() === email);
+          if (match?.id) {
+            targetUserId = match.id;
+            break;
+          }
 
-        if (users.length < perPage) break;
-        page++;
+          if (users.length < perPage) break;
+          page++;
+        }
+      } catch (listError: any) {
+        console.error("List users exception:", listError);
+        return json({ success: false, error: "Error al buscar usuarios" });
       }
 
       if (!targetUserId) {
-        return json({ success: false, error: "Ese usuario todavía no existe. Debe registrarse primero." }, 404);
+        // Return 200 with success: false so the frontend can read the error message
+        return json({ success: false, error: "El usuario debe registrarse primero" });
       }
 
       const { error } = await adminClient.from("user_roles").insert({ user_id: targetUserId, role: "admin" });
@@ -131,7 +137,7 @@ const handler = async (req: Request): Promise<Response> => {
           return json({ success: true });
         }
         console.log("Insert role error:", error);
-        return json({ success: false, error: "No se pudo asignar admin" }, 500);
+        return json({ success: false, error: "No se pudo asignar admin" });
       }
 
       return json({ success: true });
