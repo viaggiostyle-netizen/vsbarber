@@ -45,6 +45,7 @@ export function useMonthlyStats(year: number, month: number) {
         .select('*')
         .gte('fecha', monthStart)
         .lte('fecha', monthEnd)
+        .eq('estado', 'completada') // Only count completed reservations
         .order('fecha', { ascending: true });
 
       if (error) throw error;
@@ -60,7 +61,7 @@ export function useMonthlyStats(year: number, month: number) {
         revenue: 0,
       }));
 
-      // Aggregate data by week
+      // Aggregate data by week (only completed reservations)
       reservas.forEach((reserva) => {
         const reservaDate = parseISO(reserva.fecha);
         // Skip Sundays (barbershop closed)

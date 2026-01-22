@@ -5,25 +5,34 @@ import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
+import { useReservas, useTodayStats } from '@/hooks/useReservas';
+import { useUpdateReservaEstado } from '@/hooks/useUpdateReservaEstado';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
 import { toast } from 'sonner';
-import { LogOut, Calendar, DollarSign, Trash2, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle } from 'lucide-react';
+import { LogOut, Calendar, DollarSign, ArrowLeft, Users, Clock, BarChart3, Shield, MessageCircle, Edit2, UserRound } from 'lucide-react';
 import SplashScreen from '@/components/SplashScreen';
 import NotFound from '@/pages/NotFound';
 import { HourBlockManager } from '@/components/HourBlockManager';
 import RevenueStats from '@/components/RevenueStats';
 import { AdminRoleManager } from '@/components/AdminRoleManager';
+import { ClientesManager } from '@/components/ClientesManager';
+import { ReservationEditModal } from '@/components/ReservationEditModal';
 import vsLogo from '@/assets/vs-logo.jpg';
+import type { Reserva } from '@/hooks/useReservas';
+import type { Database } from '@/integrations/supabase/types';
+
+type EstadoCita = Database['public']['Enums']['estado_cita'];
 
 const Control = () => {
   const { user, loading, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const { data: reservas = [], isLoading: loadingReservas } = useReservas();
   const { data: todayStats } = useTodayStats();
-  const deleteReserva = useDeleteReserva();
+  const updateEstado = useUpdateReservaEstado();
   const [showSplash, setShowSplash] = useState(true);
+  const [editingReserva, setEditingReserva] = useState<Reserva | null>(null);
   const [graceExpired, setGraceExpired] = useState(false);
 
   // Check if user email is in the allowed list
@@ -50,15 +59,33 @@ const Control = () => {
     navigate('/');
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
-      try {
-        await deleteReserva.mutateAsync(id);
-        toast.success('Cita cancelada correctamente');
-      } catch (error) {
-        toast.error('Error al cancelar la cita');
-      }
+  const handleUpdateEstado = async (id: string, estado: EstadoCita) => {
+    try {
+      await updateEstado.mutateAsync({ id, estado });
+      const messages: Record<EstadoCita, string> = {
+        completada: 'Corte completado correctamente',
+        ausente_con_aviso: 'Registrado: no vino pero avisó',
+        no_show: 'Registrado: no vino y no avisó',
+        cancelada: 'Cita cancelada correctamente',
+        pendiente: 'Estado actualizado',
+      };
+      toast.success(messages[estado]);
+    } catch (error) {
+      toast.error('Error al actualizar la cita');
+      throw error;
     }
+  };
+
+  const getEstadoBadge = (estado: EstadoCita) => {
+    const variants: Record<EstadoCita, { label: string; className: string }> = {
+      pendiente: { label: 'Pendiente', className: 'bg-muted text-muted-foreground' },
+      completada: { label: 'Completado', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+      ausente_con_aviso: { label: 'Avisó', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
+      no_show: { label: 'No avisó', className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+      cancelada: { label: 'Cancelada', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+    };
+    const { label, className } = variants[estado] || variants.pendiente;
+    return <Badge variant="secondary" className={className}>{label}</Badge>;
   };
 
   // Generate WhatsApp link with pre-filled message
@@ -178,10 +205,14 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="reservas" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="reservas" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Reservas</span>
+            </TabsTrigger>
+            <TabsTrigger value="clientes" className="flex items-center gap-2">
+              <UserRound className="w-4 h-4" />
+              <span className="hidden sm:inline">Clientes</span>
             </TabsTrigger>
             <TabsTrigger value="horarios" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -218,38 +249,38 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                     <CardContent className="py-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <span className="font-semibold">{reserva.nombre}</span>
                             <span className="text-sm px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                               {reserva.servicio}
                             </span>
+                            {getEstadoBadge(reserva.estado)}
                           </div>
-                                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                            <span className="capitalize">
-                                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
-                                            </span>
-                                            <span>{reserva.hora.substring(0, 5)}</span>
-                                            <span>{formatPrice(reserva.precio)}</span>
-                                          </div>
-                                          <a
-                                            href={generateWhatsAppLink(reserva)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
-                                          >
-                                            <MessageCircle className="w-4 h-4" />
-                                            {reserva.telefono}
-                                          </a>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span className="capitalize">
+                              {format(parseISO(reserva.fecha), "EEE d MMM", { locale: es })}
+                            </span>
+                            <span>{reserva.hora.substring(0, 5)}</span>
+                            <span>{formatPrice(reserva.precio)}</span>
+                          </div>
+                          <a
+                            href={generateWhatsAppLink(reserva)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-sm text-[#25D366] hover:underline mt-1"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            {reserva.telefono}
+                          </a>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDelete(reserva.id)}
-                          disabled={deleteReserva.isPending}
-                          className="text-destructive hover:text-destructive"
+                          onClick={() => setEditingReserva(reserva)}
+                          disabled={updateEstado.isPending}
                         >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Cancelar
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Editar
                         </Button>
                       </div>
                     </CardContent>
@@ -257,6 +288,10 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="clientes">
+            <ClientesManager />
           </TabsContent>
 
           <TabsContent value="horarios">
@@ -275,6 +310,15 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
             <AdminRoleManager />
           </TabsContent>
         </Tabs>
+
+        {/* Edit Modal */}
+        <ReservationEditModal
+          reserva={editingReserva}
+          open={!!editingReserva}
+          onOpenChange={(open) => !open && setEditingReserva(null)}
+          onUpdateEstado={handleUpdateEstado}
+          isPending={updateEstado.isPending}
+        />
       </div>
     </div>
   );
