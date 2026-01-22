@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -9,11 +10,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useClientes } from '@/hooks/useClientes';
-import { Users, Check, UserMinus, UserX, Ban } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useClientes, useDeleteCliente } from '@/hooks/useClientes';
+import { Users, Check, UserMinus, UserX, Ban, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 export function ClientesManager() {
   const { data: clientes = [], isLoading, isError } = useClientes();
+  const deleteCliente = useDeleteCliente();
+  const [clienteToDelete, setClienteToDelete] = useState<{ id: string; nombre: string } | null>(null);
 
   const sortedClientes = useMemo(() => {
     return [...clientes].sort((a, b) => b.citas_completadas - a.citas_completadas);
@@ -26,6 +40,26 @@ export function ClientesManager() {
       recurrentes: clientes.filter(c => c.citas_completadas > 1).length,
     };
   }, [clientes]);
+
+  const handleDeleteConfirm = async () => {
+    if (!clienteToDelete) return;
+    
+    try {
+      await deleteCliente.mutateAsync(clienteToDelete.id);
+      toast({
+        title: "Cliente eliminado",
+        description: `${clienteToDelete.nombre} fue eliminado correctamente.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el cliente.",
+        variant: "destructive",
+      });
+    } finally {
+      setClienteToDelete(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -102,6 +136,7 @@ export function ClientesManager() {
                     <TableHead className="text-center">
                       <Ban className="w-4 h-4 inline" />
                     </TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -115,31 +150,41 @@ export function ClientesManager() {
                       </TableCell>
                       <TableCell className="text-center">
                         {cliente.citas_completadas > 0 && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                          <Badge variant="outline" className="border-primary/50 text-primary">
                             {cliente.citas_completadas}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
                         {cliente.citas_ausente_aviso > 0 && (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          <Badge variant="secondary">
                             {cliente.citas_ausente_aviso}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
                         {cliente.citas_no_show > 0 && (
-                          <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground">
                             {cliente.citas_no_show}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
                         {cliente.citas_canceladas > 0 && (
-                          <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                          <Badge variant="destructive">
                             {cliente.citas_canceladas}
                           </Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setClienteToDelete({ id: cliente.id, nombre: cliente.nombre })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -164,6 +209,27 @@ export function ClientesManager() {
           <Ban className="w-3 h-3" /> Canceladas
         </span>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!clienteToDelete} onOpenChange={(open) => !open && setClienteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar cliente</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro que querés eliminar a {clienteToDelete?.nombre}? Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

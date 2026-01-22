@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Cliente {
@@ -29,6 +29,24 @@ export function useClientes() {
 
       if (error) throw error;
       return data as Cliente[];
+    },
+  });
+}
+
+export function useDeleteCliente() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (clienteId: string) => {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', clienteId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
     },
   });
 }
