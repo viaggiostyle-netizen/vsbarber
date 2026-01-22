@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -20,18 +22,39 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useClientes, useDeleteCliente } from '@/hooks/useClientes';
-import { Users, Check, UserMinus, UserX, Ban, Trash2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { useClientes, useDeleteCliente, useUpdateClienteNotas } from '@/hooks/useClientes';
+import { Users, Check, UserMinus, UserX, Ban, Trash2, Search, Pencil } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export function ClientesManager() {
   const { data: clientes = [], isLoading, isError } = useClientes();
   const deleteCliente = useDeleteCliente();
+  const updateNotas = useUpdateClienteNotas();
+  
   const [clienteToDelete, setClienteToDelete] = useState<{ id: string; nombre: string } | null>(null);
+  const [editingNotas, setEditingNotas] = useState<{ id: string; nombre: string; notas: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredClientes = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return clientes;
+    
+    return clientes.filter(c => 
+      c.nombre.toLowerCase().includes(query) || 
+      c.telefono.includes(query)
+    );
+  }, [clientes, searchQuery]);
 
   const sortedClientes = useMemo(() => {
-    return [...clientes].sort((a, b) => b.citas_completadas - a.citas_completadas);
-  }, [clientes]);
+    return [...filteredClientes].sort((a, b) => b.citas_completadas - a.citas_completadas);
+  }, [filteredClientes]);
 
   const stats = useMemo(() => {
     return {
@@ -61,6 +84,28 @@ export function ClientesManager() {
     }
   };
 
+  const handleSaveNotas = async () => {
+    if (!editingNotas) return;
+    
+    try {
+      await updateNotas.mutateAsync({ 
+        clienteId: editingNotas.id, 
+        notas: editingNotas.notas 
+      });
+      toast({
+        title: "Notas guardadas",
+        description: `Las notas de ${editingNotas.nombre} fueron actualizadas.`,
+      });
+      setEditingNotas(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar las notas.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -83,9 +128,22 @@ export function ClientesManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Users className="w-5 h-5" />
-        <h2 className="text-lg font-semibold">Clientes</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Clientes</h2>
+        </div>
+      </div>
+
+      {/* Search Filter */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre o teléfono..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       {/* Stats Cards */}
@@ -113,7 +171,7 @@ export function ClientesManager() {
       {sortedClientes.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No hay clientes registrados
+            {searchQuery ? 'No se encontraron clientes' : 'No hay clientes registrados'}
           </CardContent>
         </Card>
       ) : (
@@ -136,7 +194,7 @@ export function ClientesManager() {
                     <TableHead className="text-center">
                       <Ban className="w-4 h-4 inline" />
                     </TableHead>
-                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="w-20"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -146,6 +204,11 @@ export function ClientesManager() {
                         <div className="space-y-1">
                           <div className="font-medium">{cliente.nombre}</div>
                           <div className="text-xs text-muted-foreground">{cliente.telefono}</div>
+                          {cliente.notas && (
+                            <div className="text-xs text-muted-foreground italic truncate max-w-[150px]">
+                              {cliente.notas}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -177,14 +240,28 @@ export function ClientesManager() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setClienteToDelete({ id: cliente.id, nombre: cliente.nombre })}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEditingNotas({
+                              id: cliente.id,
+                              nombre: cliente.nombre,
+                              notas: cliente.notas || '',
+                            })}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setClienteToDelete({ id: cliente.id, nombre: cliente.nombre })}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -210,7 +287,7 @@ export function ClientesManager() {
         </span>
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!clienteToDelete} onOpenChange={(open) => !open && setClienteToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -230,6 +307,31 @@ export function ClientesManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Notes Dialog */}
+      <Dialog open={!!editingNotas} onOpenChange={(open) => !open && setEditingNotas(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Notas de {editingNotas?.nombre}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Agregar notas sobre el cliente..."
+              value={editingNotas?.notas || ''}
+              onChange={(e) => setEditingNotas(prev => prev ? { ...prev, notas: e.target.value } : null)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingNotas(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveNotas} disabled={updateNotas.isPending}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
