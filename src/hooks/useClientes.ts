@@ -50,3 +50,21 @@ export function useDeleteCliente() {
     },
   });
 }
+
+export function useUpdateClienteNotas() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ clienteId, notas }: { clienteId: string; notas: string }) => {
+      const { error } = await supabase
+        .from('clientes')
+        .update({ notas })
+        .eq('id', clienteId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+    },
+  });
+}
