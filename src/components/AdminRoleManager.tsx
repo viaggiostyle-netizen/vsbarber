@@ -32,9 +32,15 @@ async function listAdmins(): Promise<AdminUser[]> {
     body: { action: 'list' },
   });
 
-  if (error) throw error;
-  if (!data?.success) throw new Error(data?.error || 'No se pudo cargar la lista');
-  return data.admins ?? [];
+  // Handle edge function errors - check data first since invoke might succeed but return error in data
+  if (data && !data.success) {
+    throw new Error(data.error || 'No se pudo cargar la lista');
+  }
+  if (error) {
+    console.error('Edge function error:', error);
+    throw new Error('Error de conexión. Intentá nuevamente.');
+  }
+  return data?.admins ?? [];
 }
 
 async function addAdmin(email: string): Promise<void> {
@@ -42,8 +48,14 @@ async function addAdmin(email: string): Promise<void> {
     body: { action: 'add', email },
   });
 
-  if (error) throw error;
-  if (!data?.success) throw new Error(data?.error || 'No se pudo agregar el admin');
+  // Handle edge function errors - prioritize data.error for user-friendly messages
+  if (data && !data.success) {
+    throw new Error(data.error || 'No se pudo agregar el admin');
+  }
+  if (error) {
+    console.error('Edge function error:', error);
+    throw new Error('Error de conexión. Intentá nuevamente.');
+  }
 }
 
 async function removeAdmin(user_id: string): Promise<void> {
@@ -51,8 +63,14 @@ async function removeAdmin(user_id: string): Promise<void> {
     body: { action: 'remove', user_id },
   });
 
-  if (error) throw error;
-  if (!data?.success) throw new Error(data?.error || 'No se pudo eliminar el admin');
+  // Handle edge function errors - prioritize data.error for user-friendly messages
+  if (data && !data.success) {
+    throw new Error(data.error || 'No se pudo eliminar el admin');
+  }
+  if (error) {
+    console.error('Edge function error:', error);
+    throw new Error('Error de conexión. Intentá nuevamente.');
+  }
 }
 
 export function AdminRoleManager() {
