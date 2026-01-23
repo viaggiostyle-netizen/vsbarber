@@ -40,7 +40,13 @@ export function useAuth() {
       try {
         // Server-side self-heal: guarantees that the core admin emails always
         // have the admin role even if it was removed accidentally.
-        await supabase.functions.invoke('ensure-core-admin');
+        await supabase.functions.invoke('ensure-core-admin', {
+          headers: {
+            // Be explicit: prevents supabase-js from falling back to the anon JWT
+            // (which has no `sub` claim and causes bad_jwt/missing sub in getClaims).
+            Authorization: `Bearer ${currentSession.access_token}`,
+          },
+        });
       } catch (err) {
         // Ignore: we still fall back to the normal role check.
         console.log('ensureCoreAdmin error (ignored):', err);
