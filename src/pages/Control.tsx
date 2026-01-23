@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
-import { useReservas, useTodayStats } from '@/hooks/useReservas';
+import { useReservas, useTodayStats, useDeleteReserva } from '@/hooks/useReservas';
 import { useUpdateReservaEstado } from '@/hooks/useUpdateReservaEstado';
 import { useDeleteCliente, useClientes } from '@/hooks/useClientes';
 import { formatPrice, ADMIN_EMAILS } from '@/lib/constants';
@@ -44,10 +44,12 @@ const Control = () => {
   const { data: clientes = [] } = useClientes();
   const updateEstado = useUpdateReservaEstado();
   const deleteCliente = useDeleteCliente();
+  const deleteReserva = useDeleteReserva();
   const [showSplash, setShowSplash] = useState(true);
   const [editingReserva, setEditingReserva] = useState<Reserva | null>(null);
   const [graceExpired, setGraceExpired] = useState(false);
   const [deletingClienteFromReserva, setDeletingClienteFromReserva] = useState<Reserva | null>(null);
+  const [deletingReserva, setDeletingReserva] = useState<Reserva | null>(null);
 
   // Check if user email is in the allowed list
   const isAllowedEmail = !!(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
@@ -158,6 +160,18 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
       toast.error('Error al eliminar el cliente');
     } finally {
       setDeletingClienteFromReserva(null);
+    }
+  };
+
+  const handleDeleteReserva = async () => {
+    if (!deletingReserva) return;
+    try {
+      await deleteReserva.mutateAsync(deletingReserva.id);
+      toast.success('Reserva eliminada correctamente');
+    } catch {
+      toast.error('Error al eliminar la reserva');
+    } finally {
+      setDeletingReserva(null);
     }
   };
 
@@ -313,18 +327,16 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
                           </a>
                         </div>
                         <div className="flex gap-2">
-                          {findClienteByReserva(reserva) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => setDeletingClienteFromReserva(reserva)}
-                              disabled={deleteCliente.isPending}
-                              title="Eliminar cliente"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeletingReserva(reserva)}
+                            disabled={deleteReserva.isPending}
+                            title="Eliminar reserva"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -373,22 +385,21 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
           isPending={updateEstado.isPending}
         />
 
-        {/* Delete Cliente from Reserva Confirmation */}
-        <AlertDialog open={!!deletingClienteFromReserva} onOpenChange={(open) => !open && setDeletingClienteFromReserva(null)}>
+        {/* Delete Reserva Confirmation */}
+        <AlertDialog open={!!deletingReserva} onOpenChange={(open) => !open && setDeletingReserva(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+              <AlertDialogTitle>¿Eliminar reserva?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción eliminará permanentemente el historial del cliente{' '}
-                <span className="font-semibold">{deletingClienteFromReserva?.nombre}</span> ({deletingClienteFromReserva?.email}).
-                <br />
-                Las reservas existentes no se eliminarán.
+                Esta acción eliminará permanentemente la reserva de{' '}
+                <span className="font-semibold">{deletingReserva?.nombre}</span> para el{' '}
+                {deletingReserva?.fecha && format(parseISO(deletingReserva.fecha), "d 'de' MMMM", { locale: es })} a las {deletingReserva?.hora.substring(0, 5)}.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleDeleteClienteFromReserva}
+                onClick={handleDeleteReserva}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Eliminar
