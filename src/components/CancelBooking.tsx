@@ -240,7 +240,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
 
           <Button
             onClick={handleModify}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+            className="w-full bg-[#F9A825] hover:bg-[#F57F17] text-white"
             disabled={isModifying || !selectedDate || !selectedTime}
           >
             <Edit className="w-4 h-4 mr-2" />
@@ -312,7 +312,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
                     <Button
                       onClick={() => setShowCancelConfirm(true)}
                       variant="destructive"
-                      className="w-full bg-red-600 hover:bg-red-700"
+                      className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
                       disabled={isDeleting}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -321,7 +321,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
                     
                     <Button
                       onClick={() => setShowModifyForm(true)}
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                      className="w-full bg-[#F9A825] hover:bg-[#F57F17] text-white"
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       Modificar cita
@@ -354,7 +354,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
             <AlertDialogCancel>Volver</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancel}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
               disabled={isDeleting}
             >
               {isDeleting ? 'Cancelando...' : 'Sí, cancelar'}
