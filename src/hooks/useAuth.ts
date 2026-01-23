@@ -27,20 +27,27 @@ export function useAuth() {
       setRoleLoading(false);
     };
 
-    const ensureCoreAdmin = async (u: User) => {
+    const ensureCoreAdmin = async (u: User, currentSession: Session | null) => {
       const email = (u.email ?? '').toLowerCase();
       if (!email || !ADMIN_EMAILS.includes(email)) return;
+
+      // Only call edge function if we have a valid session with access token
+      if (!currentSession?.access_token) {
+        console.log('Skipping ensureCoreAdmin: no valid session');
+        return;
+      }
 
       try {
         // Server-side self-heal: guarantees that the core admin emails always
         // have the admin role even if it was removed accidentally.
         await supabase.functions.invoke('ensure-core-admin');
-      } catch {
+      } catch (err) {
         // Ignore: we still fall back to the normal role check.
+        console.log('ensureCoreAdmin error (ignored):', err);
       }
     };
 
-    const checkAdminRole = async (nextUser: User) => {
+    const checkAdminRole = async (nextUser: User, currentSession: Session | null) => {
       const key = `admin:${nextUser.id}`;
       // Prevent duplicate concurrent checks for the same user, but do NOT
       // permanently cache across logouts/logins (Android can rehydrate late).
@@ -50,7 +57,7 @@ export function useAuth() {
       if (mountedRef.current) setRoleLoading(true);
 
       try {
-        await ensureCoreAdmin(nextUser);
+        await ensureCoreAdmin(nextUser, currentSession);
 
         // Use the SECURITY DEFINER function to avoid any RLS issues on user_roles
         const { data, error } = await supabase.rpc('has_role', {
@@ -87,7 +94,7 @@ export function useAuth() {
         lastRoleCheckKeyRef.current = '';
         // Defer role check (avoid making Supabase calls inside callback)
         setTimeout(() => {
-          if (mountedRef.current) void checkAdminRole(nextSession.user);
+          if (mountedRef.current) void checkAdminRole(nextSession.user, nextSession);
         }, 0);
       } else {
         setAnonymous();
@@ -109,7 +116,7 @@ export function useAuth() {
         if (data.session?.user) {
           // Session restored => force role re-check (fixes late rehydration on Android)
           lastRoleCheckKeyRef.current = '';
-          void checkAdminRole(data.session.user);
+          void checkAdminRole(data.session.user, data.session);
         } else {
           setAnonymous();
         }
