@@ -122,8 +122,8 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
             TTL: '86400'
           },
           notification: {
-            icon: '/pwa-192x192.png',
-            badge: '/pwa-192x192.png',
+            icon: '/vs-icon-192.png',
+            badge: '/vs-badge-96.png',
             vibrate: [200, 100, 200],
             requireInteraction: true
           }
