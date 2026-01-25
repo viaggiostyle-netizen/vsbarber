@@ -145,7 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error sending push notification:", pushError);
     }
 
-    // Add new appointment to Google Calendar
+    // Update Google Calendar event (don't create new, move existing)
     try {
       const [hour, minute] = new_hora.split(":").map(Number);
       const startDate = new Date(`${new_fecha}T${new_hora}`);
@@ -154,22 +154,51 @@ const handler = async (req: Request): Promise<Response> => {
       const startISO = `${new_fecha}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
       const endISO = `${new_fecha}T${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}:00`;
 
-      await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({
-          summary: `✂️ ${reserva.nombre} - ${reserva.servicio} (Reprogramado)`,
-          description: `Cliente: ${reserva.nombre}\nTeléfono: ${reserva.telefono}\nEmail: ${reserva.email}\nServicio: ${reserva.servicio}\nPrecio: $${reserva.precio.toLocaleString()}\n\nNOTA: Esta cita fue reprogramada desde ${oldFechaCorta} ${oldHora.substring(0, 5)}`,
-          start: startISO,
-          end: endISO,
-        }),
-      });
-      console.log("Calendar event created for modified reservation");
+      if (reserva.calendar_event_id) {
+        // Update existing event
+        await fetch(`${SUPABASE_URL}/functions/v1/update-calendar-event`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            eventId: reserva.calendar_event_id,
+            summary: `✂️ ${reserva.nombre} - ${reserva.servicio}`,
+            description: `Cliente: ${reserva.nombre}\nTeléfono: ${reserva.telefono}\nEmail: ${reserva.email}\nServicio: ${reserva.servicio}\nPrecio: $${reserva.precio.toLocaleString()}\n\nReprogramado desde: ${oldFechaCorta} ${oldHora.substring(0, 5)}`,
+            start: startISO,
+            end: endISO,
+          }),
+        });
+        console.log("Calendar event updated:", reserva.calendar_event_id);
+      } else {
+        // No existing event, create new one
+        const calendarRes = await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            summary: `✂️ ${reserva.nombre} - ${reserva.servicio}`,
+            description: `Cliente: ${reserva.nombre}\nTeléfono: ${reserva.telefono}\nEmail: ${reserva.email}\nServicio: ${reserva.servicio}\nPrecio: $${reserva.precio.toLocaleString()}`,
+            start: startISO,
+            end: endISO,
+          }),
+        });
+        
+        const calendarData = await calendarRes.json();
+        if (calendarData.success && calendarData.eventId) {
+          // Save the new calendar event ID
+          await supabase
+            .from("reservas")
+            .update({ calendar_event_id: calendarData.eventId })
+            .eq("id", reserva_id);
+          console.log("New calendar event created and ID saved:", calendarData.eventId);
+        }
+      }
     } catch (calendarError) {
-      console.error("Error adding to calendar:", calendarError);
+      console.error("Error updating calendar:", calendarError);
     }
 
     // Send email notification to admin

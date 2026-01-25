@@ -5,11 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface CalendarEventRequest {
-  summary: string;
-  description: string;
-  start: string; // ISO date string
-  end: string; // ISO date string
+interface UpdateEventRequest {
+  eventId: string;
+  summary?: string;
+  description?: string;
+  start: string;
+  end: string;
 }
 
 // Get OAuth2 access token using service account
@@ -22,7 +23,6 @@ async function getAccessToken(): Promise<string> {
   const serviceAccount = JSON.parse(serviceAccountJson);
   const now = Math.floor(Date.now() / 1000);
 
-  // Create JWT header and claim set
   const header = { alg: "RS256", typ: "JWT" };
   const claimSet = {
     iss: serviceAccount.client_email,
@@ -32,7 +32,6 @@ async function getAccessToken(): Promise<string> {
     exp: now + 3600,
   };
 
-  // Base64url encode
   const encoder = new TextEncoder();
   const base64urlEncode = (data: Uint8Array): string => {
     return btoa(String.fromCharCode(...data))
@@ -45,7 +44,6 @@ async function getAccessToken(): Promise<string> {
   const claimSetB64 = base64urlEncode(encoder.encode(JSON.stringify(claimSet)));
   const signatureInput = `${headerB64}.${claimSetB64}`;
 
-  // Import private key and sign
   const pemHeader = "-----BEGIN PRIVATE KEY-----";
   const pemFooter = "-----END PRIVATE KEY-----";
   const pemContents = serviceAccount.private_key
@@ -72,7 +70,6 @@ async function getAccessToken(): Promise<string> {
   const signatureB64 = base64urlEncode(new Uint8Array(signature));
   const jwt = `${signatureInput}.${signatureB64}`;
 
-  // Exchange JWT for access token
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -97,19 +94,21 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { summary, description, start, end }: CalendarEventRequest = await req.json();
+    const { eventId, summary, description, start, end }: UpdateEventRequest = await req.json();
 
-    console.log("Adding calendar event:", { summary, start, end });
+    if (!eventId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "eventId is required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Updating calendar event:", { eventId, start, end });
 
     const accessToken = await getAccessToken();
+    const calendarId = "viaggiostyle@gmail.com";
 
-    // Calendar ID - use primary calendar or a specific one
-    // For service accounts, you need to share the calendar with the service account email
-    const calendarId = "viaggiostyle@gmail.com"; // Replace with your calendar ID
-
-    const event = {
-      summary,
-      description,
+    const event: Record<string, unknown> = {
       start: {
         dateTime: start,
         timeZone: "America/Argentina/Buenos_Aires",
@@ -118,19 +117,15 @@ const handler = async (req: Request): Promise<Response> => {
         dateTime: end,
         timeZone: "America/Argentina/Buenos_Aires",
       },
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: "popup", minutes: 60 },
-          { method: "popup", minutes: 30 },
-        ],
-      },
     };
 
+    if (summary) event.summary = summary;
+    if (description) event.description = description;
+
     const calendarResponse = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
       {
-        method: "POST",
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
@@ -149,16 +144,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Event created:", calendarResult.id);
+    console.log("Event updated:", calendarResult.id);
 
-    // Return the event ID so it can be stored with the reservation
     return new Response(
       JSON.stringify({ success: true, eventId: calendarResult.id }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error adding to calendar:", error);
+    console.error("Error updating calendar event:", error);
     return new Response(
       JSON.stringify({ success: false, error: message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

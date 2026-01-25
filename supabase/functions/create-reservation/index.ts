@@ -149,7 +149,8 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error sending push notification:", pushError);
     }
 
-    // Add to Google Calendar
+    // Add to Google Calendar and save event ID
+    let calendarEventId: string | null = null;
     try {
       // Assume appointment duration of 30 minutes
       const [hour, minute] = data.hora.split(":").map(Number);
@@ -159,7 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
       const startISO = `${data.fecha}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
       const endISO = `${data.fecha}T${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}:00`;
 
-      await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
+      const calendarRes = await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -172,7 +173,17 @@ const handler = async (req: Request): Promise<Response> => {
           end: endISO,
         }),
       });
-      console.log("Calendar event created");
+      
+      const calendarData = await calendarRes.json();
+      if (calendarData.success && calendarData.eventId) {
+        calendarEventId = calendarData.eventId;
+        // Save the calendar event ID to the reservation
+        await supabase
+          .from("reservas")
+          .update({ calendar_event_id: calendarEventId })
+          .eq("id", reserva.id);
+        console.log("Calendar event created and ID saved:", calendarEventId);
+      }
     } catch (calendarError) {
       console.error("Error adding to calendar:", calendarError);
     }
