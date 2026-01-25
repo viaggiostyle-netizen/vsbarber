@@ -149,6 +149,34 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error sending push notification:", pushError);
     }
 
+    // Add to Google Calendar
+    try {
+      // Assume appointment duration of 30 minutes
+      const [hour, minute] = data.hora.split(":").map(Number);
+      const startDate = new Date(`${data.fecha}T${data.hora}`);
+      const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
+
+      const startISO = `${data.fecha}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+      const endISO = `${data.fecha}T${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}:00`;
+
+      await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          summary: `✂️ ${data.nombre} - ${data.servicio}`,
+          description: `Cliente: ${data.nombre}\nTeléfono: ${data.telefono}\nEmail: ${data.email}\nServicio: ${data.servicio}\nPrecio: $${data.precio.toLocaleString()}`,
+          start: startISO,
+          end: endISO,
+        }),
+      });
+      console.log("Calendar event created");
+    } catch (calendarError) {
+      console.error("Error adding to calendar:", calendarError);
+    }
+
     // Format date for email (full format)
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
