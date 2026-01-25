@@ -31,6 +31,8 @@ import { AdminRoleManager } from '@/components/AdminRoleManager';
 import { ClientesManager } from '@/components/ClientesManager';
 import { ReservationEditModal } from '@/components/ReservationEditModal';
 import vsLogo from '@/assets/vs-logo.jpg';
+import { PushNotificationButton } from '@/components/PushNotificationButton';
+import { TestPushButton } from '@/components/TestPushButton';
 import type { Reserva } from '@/hooks/useReservas';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -221,10 +223,14 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Salir
-          </Button>
+          <div className="flex items-center gap-2">
+            <TestPushButton />
+            <PushNotificationButton />
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Salir
+            </Button>
+          </div>
         </header>
 
         {/* Stats Cards */}

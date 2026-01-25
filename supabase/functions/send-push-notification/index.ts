@@ -10,20 +10,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface PushNotificationRequest {
+interface PushRequest {
   title: string;
   body: string;
   data?: Record<string, string>;
-  mobileOnly?: boolean; // Only send to mobile devices
+  mobileOnly?: boolean;
 }
 
-// Check if user agent is from an Android device
-function isAndroidDevice(userAgent: string | null): boolean {
+// Check if user agent indicates a mobile device
+function isMobileDevice(userAgent: string | null): boolean {
   if (!userAgent) return false;
-  return userAgent.includes('Android');
+  const ua = userAgent.toLowerCase();
+  return ua.includes('android') || ua.includes('iphone') || ua.includes('mobile');
 }
 
-// Get Google OAuth2 access token from service account
+// Get OAuth2 access token from Firebase service account
 async function getAccessToken(): Promise<string> {
   if (!FIREBASE_SERVICE_ACCOUNT) {
     throw new Error("FIREBASE_SERVICE_ACCOUNT not configured");
@@ -31,12 +32,7 @@ async function getAccessToken(): Promise<string> {
 
   const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
   
-  // Create JWT header and payload
-  const header = {
-    alg: "RS256",
-    typ: "JWT"
-  };
-
+  const header = { alg: "RS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: serviceAccount.client_email,
@@ -46,13 +42,15 @@ async function getAccessToken(): Promise<string> {
     exp: now + 3600
   };
 
-  // Encode header and payload
-  const encoder = new TextEncoder();
-  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  // Base64URL encode
+  const b64url = (obj: unknown) => 
+    btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  
+  const headerB64 = b64url(header);
+  const payloadB64 = b64url(payload);
   const unsignedToken = `${headerB64}.${payloadB64}`;
 
-  // Import private key and sign
+  // Import private key
   const pemContents = serviceAccount.private_key
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
@@ -68,70 +66,79 @@ async function getAccessToken(): Promise<string> {
     ["sign"]
   );
 
+  // Sign the token
   const signature = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     cryptoKey,
-    encoder.encode(unsignedToken)
+    new TextEncoder().encode(unsignedToken)
   );
 
   const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 
   const jwt = `${unsignedToken}.${signatureB64}`;
 
   // Exchange JWT for access token
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
   });
 
-  const tokenData = await tokenResponse.json();
+  const data = await response.json();
   
-  if (!tokenData.access_token) {
-    console.error("Token response:", tokenData);
+  if (!data.access_token) {
+    console.error("Token error:", data);
     throw new Error("Failed to get access token");
   }
 
-  return tokenData.access_token;
+  return data.access_token;
 }
 
-// Send FCM message using HTTP v1 API - DATA ONLY payload for reliable SW handling
-async function sendFCMMessage(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
+// Send FCM message via HTTP v1 API
+async function sendFCM(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Use DATA-ONLY message - no notification field
-    // This ensures the Service Worker always handles and displays the notification
     const message = {
       message: {
         token,
+        notification: {
+          title,
+          body
+        },
         data: {
           title,
           body,
-          tag: data?.tag || 'vs-reservation',
+          tag: data?.tag || 'vs-notification',
           url: data?.url || '/control',
-          icon: '/vs-logo.png',
-          badge: '/vs-logo.png',
           ...(data || {})
         },
         webpush: {
           headers: {
             Urgency: 'high',
             TTL: '86400'
+          },
+          notification: {
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            vibrate: [200, 100, 200],
+            requireInteraction: true
           }
         },
         android: {
-          priority: 'high'
+          priority: 'high',
+          notification: {
+            icon: 'ic_notification',
+            color: '#000000'
+          }
         }
       }
     };
 
-    console.log("Sending FCM message:", JSON.stringify(message, null, 2));
+    console.log("Sending FCM to:", token.substring(0, 30) + "...");
 
     const response = await fetch(
       `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -152,10 +159,10 @@ async function sendFCMMessage(token: string, title: string, body: string, data?:
       return false;
     }
 
-    console.log("FCM message sent:", result);
+    console.log("FCM success:", result.name);
     return true;
   } catch (error) {
-    console.error("Error sending FCM message:", error);
+    console.error("FCM send error:", error);
     return false;
   }
 }
@@ -166,87 +173,80 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { title, body, data, mobileOnly = true }: PushNotificationRequest = await req.json();
+    const { title, body, data, mobileOnly = true }: PushRequest = await req.json();
 
     if (!title || !body) {
       return new Response(
-        JSON.stringify({ error: "Title and body are required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: "Title and body required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create Supabase client with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all FCM tokens with user_agent
+    // Get all tokens
     const { data: tokens, error } = await supabase
       .from("fcm_tokens")
       .select("token, user_agent");
 
     if (error) {
-      console.error("Error fetching tokens:", error);
+      console.error("DB error:", error);
       return new Response(
         JSON.stringify({ error: "Failed to fetch tokens" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!tokens || tokens.length === 0) {
-      console.log("No FCM tokens found");
+      console.log("No tokens found");
       return new Response(
-        JSON.stringify({ success: true, sent: 0 }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: true, sent: 0, message: "No devices registered" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Filter tokens - only Android devices by default
-    const filteredTokens = mobileOnly 
-      ? tokens.filter(t => isAndroidDevice(t.user_agent))
+    // Filter tokens based on mobileOnly flag
+    const targetTokens = mobileOnly 
+      ? tokens.filter(t => isMobileDevice(t.user_agent))
       : tokens;
 
-    console.log(`Total tokens: ${tokens.length}, Mobile tokens: ${filteredTokens.length}, mobileOnly: ${mobileOnly}`);
+    console.log(`Tokens: ${tokens.length} total, ${targetTokens.length} targeted (mobileOnly: ${mobileOnly})`);
 
-    if (filteredTokens.length === 0) {
-      console.log("No mobile tokens found");
+    if (targetTokens.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, sent: 0, message: "No mobile devices registered" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: true, sent: 0, message: mobileOnly ? "No mobile devices" : "No devices" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Sending push to ${filteredTokens.length} mobile device(s)`);
+    // Send to all targeted tokens
+    let sent = 0;
+    const failed: string[] = [];
 
-    // Send to filtered tokens
-    let successCount = 0;
-    const invalidTokens: string[] = [];
-
-    for (const { token } of filteredTokens) {
-      const success = await sendFCMMessage(token, title, body, data);
+    for (const { token } of targetTokens) {
+      const success = await sendFCM(token, title, body, data);
       if (success) {
-        successCount++;
+        sent++;
       } else {
-        invalidTokens.push(token);
+        failed.push(token);
       }
     }
 
-    // Remove invalid tokens
-    if (invalidTokens.length > 0) {
-      await supabase
-        .from("fcm_tokens")
-        .delete()
-        .in("token", invalidTokens);
-      console.log(`Removed ${invalidTokens.length} invalid tokens`);
+    // Clean up invalid tokens
+    if (failed.length > 0) {
+      await supabase.from("fcm_tokens").delete().in("token", failed);
+      console.log(`Removed ${failed.length} invalid tokens`);
     }
 
     return new Response(
-      JSON.stringify({ success: true, sent: successCount, failed: invalidTokens.length }),
-      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({ success: true, sent, failed: failed.length }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
-    console.error("Error:", error);
+  } catch (error: unknown) {
+    console.error("Handler error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 };

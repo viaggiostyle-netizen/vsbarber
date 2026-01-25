@@ -8,85 +8,75 @@ import {
 } from "@/lib/firebase";
 import { toast } from "sonner";
 
-const STORAGE_KEY = "vs_fcm_token";
-
-const upsertToken = async (fcmToken: string) => {
-  const { error } = await supabase
-    .from("fcm_tokens")
-    .upsert(
-      {
-        token: fcmToken,
-        user_agent: navigator.userAgent,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "token" }
-    );
-
-  if (error) throw error;
-};
-
-const deleteTokenRow = async (fcmToken: string) => {
-  const { error } = await supabase.from("fcm_tokens").delete().eq("token", fcmToken);
-  if (error) throw error;
-};
+const STORAGE_KEY = "vs_push_token";
 
 export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  // Hydrate subscription state more accurately than just Notification.permission
+  // Save token to database
+  const saveToken = async (fcmToken: string) => {
+    const { error } = await supabase
+      .from("fcm_tokens")
+      .upsert(
+        {
+          token: fcmToken,
+          user_agent: navigator.userAgent,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "token" }
+      );
+    if (error) throw error;
+  };
+
+  // Remove token from database
+  const removeToken = async (fcmToken: string) => {
+    const { error } = await supabase.from("fcm_tokens").delete().eq("token", fcmToken);
+    if (error) throw error;
+  };
+
+  // Initialize on mount
   useEffect(() => {
     const init = async () => {
       if (typeof window === "undefined" || !("Notification" in window)) return;
 
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setToken(stored);
+      // Check localStorage first
+      const storedToken = localStorage.getItem(STORAGE_KEY);
+      if (storedToken) {
+        setToken(storedToken);
         setIsSubscribed(true);
-        // Best-effort: ensure backend has it (don’t block UI)
-        upsertToken(stored).catch((e) =>
-          console.warn("FCM token upsert (stored) failed:", e)
-        );
+        // Refresh token in background
+        saveToken(storedToken).catch(console.error);
         return;
       }
 
-      // If permission is already granted (common on mobile), try to fetch/register token silently.
+      // Try to get existing token if permission already granted
       if (Notification.permission === "granted") {
-        const existing = await getExistingFcmToken();
-        if (existing) {
-          try {
-            await upsertToken(existing);
-            localStorage.setItem(STORAGE_KEY, existing);
-            setToken(existing);
+        try {
+          const existingToken = await getExistingFcmToken();
+          if (existingToken) {
+            await saveToken(existingToken);
+            localStorage.setItem(STORAGE_KEY, existingToken);
+            setToken(existingToken);
             setIsSubscribed(true);
-          } catch (e) {
-            console.error("Error saving existing FCM token:", e);
-            setIsSubscribed(false);
           }
-        } else {
-          // Permission granted but no token: show as NOT subscribed so user can retry.
-          setIsSubscribed(false);
+        } catch (error) {
+          console.error("Error getting existing token:", error);
         }
-      } else {
-        setIsSubscribed(false);
       }
     };
 
     init();
   }, []);
 
-  // Listen for foreground messages (data-only messages)
+  // Handle foreground messages
   useEffect(() => {
     const unsubscribe = onForegroundMessage((payload) => {
-      console.log("Foreground message received:", payload);
-      // Data-only messages have title/body in data, not notification
-      const title =
-        payload.data?.title || payload.notification?.title || "Nueva notificación";
+      console.log("Foreground message:", payload);
+      const title = payload.data?.title || payload.notification?.title || "Notificación";
       const body = payload.data?.body || payload.notification?.body;
-      toast(`✂️ ${title}`, {
-        description: body,
-      });
+      toast(`✂️ ${title}`, { description: body });
     });
     return unsubscribe;
   }, []);
@@ -95,23 +85,20 @@ export const usePushNotifications = () => {
     setIsLoading(true);
     try {
       const fcmToken = await requestNotificationPermission();
-
+      
       if (!fcmToken) {
-        toast.error(
-          "No se pudo activar: revisá permisos de notificación y volvé a intentar"
-        );
+        toast.error("No se pudo activar. Verifica los permisos de notificación.");
         return false;
       }
 
-      await upsertToken(fcmToken);
-
+      await saveToken(fcmToken);
       localStorage.setItem(STORAGE_KEY, fcmToken);
       setToken(fcmToken);
       setIsSubscribed(true);
       toast.success("¡Notificaciones activadas!");
       return true;
     } catch (error) {
-      console.error("Error subscribing to push:", error);
+      console.error("Subscribe error:", error);
       toast.error("Error al activar notificaciones");
       return false;
     } finally {
@@ -122,23 +109,20 @@ export const usePushNotifications = () => {
   const unsubscribe = useCallback(async () => {
     setIsLoading(true);
     try {
-      const current = token ?? localStorage.getItem(STORAGE_KEY);
-      if (!current) {
-        setIsSubscribed(false);
-        return true;
+      const currentToken = token || localStorage.getItem(STORAGE_KEY);
+      
+      if (currentToken) {
+        await deleteCurrentFcmToken();
+        await removeToken(currentToken);
+        localStorage.removeItem(STORAGE_KEY);
       }
-
-      // Best-effort: remove from device/browser first, then backend
-      await deleteCurrentFcmToken();
-      await deleteTokenRow(current);
-
-      localStorage.removeItem(STORAGE_KEY);
+      
       setToken(null);
       setIsSubscribed(false);
       toast.success("Notificaciones desactivadas");
       return true;
     } catch (error) {
-      console.error("Error unsubscribing from push:", error);
+      console.error("Unsubscribe error:", error);
       toast.error("Error al desactivar notificaciones");
       return false;
     } finally {
