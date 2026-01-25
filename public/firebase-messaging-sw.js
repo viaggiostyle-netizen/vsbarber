@@ -19,74 +19,31 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
-// Handle background messages
+// Handle background messages (data-only from FCM)
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background message received:', payload);
   
   const data = payload.data || {};
-  const notification = payload.notification || {};
   
-  const title = data.title || notification.title || 'ViaggioStyle';
-  const body = data.body || notification.body || 'Nueva notificación';
+  const title = data.title || 'ViaggioStyle';
+  const body = data.body || 'Nueva notificación';
   
   const options = {
     body: body,
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
+    icon: data.icon || '/vs-icon-192.png',
+    badge: data.badge || '/vs-badge-96.png',
     tag: data.tag || 'vs-notification',
     data: { url: data.url || '/control' },
     vibrate: [200, 100, 200],
     requireInteraction: true,
-    renotify: true
+    renotify: false
   };
   
   return self.registration.showNotification(title, options);
 });
 
-// Handle push events directly (fallback)
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push event received');
-  
-  if (!event.data) {
-    console.log('[SW] No data in push event');
-    return;
-  }
-  
-  event.waitUntil(
-    (async () => {
-      try {
-        const payload = event.data.json();
-        console.log('[SW] Push payload:', payload);
-        
-        const data = payload.data || {};
-        const notification = payload.notification || {};
-        
-        const title = data.title || notification.title || 'ViaggioStyle';
-        const body = data.body || notification.body || 'Nueva notificación';
-        
-        await self.registration.showNotification(title, {
-          body: body,
-          icon: '/pwa-192x192.png',
-          badge: '/pwa-192x192.png',
-          tag: data.tag || 'vs-notification',
-          data: { url: data.url || '/control' },
-          vibrate: [200, 100, 200],
-          requireInteraction: true,
-          renotify: true
-        });
-      } catch (error) {
-        console.error('[SW] Error handling push:', error);
-        // Fallback notification
-        await self.registration.showNotification('ViaggioStyle', {
-          body: 'Nueva notificación',
-          icon: '/pwa-192x192.png',
-          badge: '/pwa-192x192.png',
-          tag: 'vs-fallback'
-        });
-      }
-    })()
-  );
-});
+// Push event handler removed - onBackgroundMessage handles everything
+// This prevents duplicate notifications
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {

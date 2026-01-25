@@ -102,37 +102,26 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
+    // Data-only message - Service Worker controls display (no duplicates)
     const message = {
       message: {
         token,
-        notification: {
-          title,
-          body
-        },
         data: {
           title,
           body,
           tag: data?.tag || 'vs-notification',
           url: data?.url || '/control',
+          icon: '/vs-icon-192.png',
+          badge: '/vs-badge-96.png',
           ...(data || {})
+        },
+        android: {
+          priority: 'high'
         },
         webpush: {
           headers: {
             Urgency: 'high',
             TTL: '86400'
-          },
-          notification: {
-            icon: '/vs-icon-192.png',
-            badge: '/vs-badge-96.png',
-            vibrate: [200, 100, 200],
-            requireInteraction: true
-          }
-        },
-        android: {
-          priority: 'high',
-          notification: {
-            icon: 'ic_notification',
-            color: '#000000'
           }
         }
       }
