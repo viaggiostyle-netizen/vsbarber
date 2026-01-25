@@ -145,6 +145,33 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error sending push notification:", pushError);
     }
 
+    // Add new appointment to Google Calendar
+    try {
+      const [hour, minute] = new_hora.split(":").map(Number);
+      const startDate = new Date(`${new_fecha}T${new_hora}`);
+      const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
+
+      const startISO = `${new_fecha}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
+      const endISO = `${new_fecha}T${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}:00`;
+
+      await fetch(`${SUPABASE_URL}/functions/v1/add-to-calendar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          summary: `✂️ ${reserva.nombre} - ${reserva.servicio} (Reprogramado)`,
+          description: `Cliente: ${reserva.nombre}\nTeléfono: ${reserva.telefono}\nEmail: ${reserva.email}\nServicio: ${reserva.servicio}\nPrecio: $${reserva.precio.toLocaleString()}\n\nNOTA: Esta cita fue reprogramada desde ${oldFechaCorta} ${oldHora.substring(0, 5)}`,
+          start: startISO,
+          end: endISO,
+        }),
+      });
+      console.log("Calendar event created for modified reservation");
+    } catch (calendarError) {
+      console.error("Error adding to calendar:", calendarError);
+    }
+
     // Send email notification to admin
     if (RESEND_API_KEY) {
       const options: Intl.DateTimeFormatOptions = { 
