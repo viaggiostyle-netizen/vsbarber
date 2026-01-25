@@ -118,6 +118,7 @@ export type Database = {
       }
       reservas: {
         Row: {
+          calendar_event_id: string | null
           created_at: string
           email: string
           estado: Database["public"]["Enums"]["estado_cita"]
@@ -130,6 +131,7 @@ export type Database = {
           telefono: string
         }
         Insert: {
+          calendar_event_id?: string | null
           created_at?: string
           email: string
           estado?: Database["public"]["Enums"]["estado_cita"]
@@ -142,6 +144,7 @@ export type Database = {
           telefono: string
         }
         Update: {
+          calendar_event_id?: string | null
           created_at?: string
           email?: string
           estado?: Database["public"]["Enums"]["estado_cita"]

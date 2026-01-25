@@ -51,6 +51,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Cancelling reservation for:", { nombre: reserva.nombre, servicio: reserva.servicio });
 
+    // Delete from Google Calendar if event ID exists
+    if (reserva.calendar_event_id) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/delete-calendar-event`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ eventId: reserva.calendar_event_id }),
+        });
+        console.log("Calendar event deleted:", reserva.calendar_event_id);
+      } catch (calError) {
+        console.error("Error deleting calendar event:", calError);
+      }
+    }
+
     // Delete the reservation using service role
     const { error: deleteError } = await supabase
       .from("reservas")
