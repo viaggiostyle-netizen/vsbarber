@@ -102,27 +102,37 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Include notification object for OS-level display when app is closed
+    // FCM HTTP v1 API payload - icon/badge go in webpush.notification, not top-level notification
     const message = {
       message: {
         token,
         notification: {
           title,
-          body,
-          icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
-          badge: 'https://vsbarber.lovable.app/vs-badge-96.png'
+          body
         },
         data: {
           tag: data?.tag || 'vs-notification',
-          url: data?.url || '/control'
+          url: data?.url || '/control',
+          icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
+          badge: 'https://vsbarber.lovable.app/vs-badge-96.png'
         },
         android: {
-          priority: 'high'
+          priority: 'high',
+          notification: {
+            icon: 'ic_notification',
+            color: '#D4AF37',
+            click_action: 'OPEN_CONTROL'
+          }
         },
         webpush: {
           headers: {
             Urgency: 'high',
             TTL: '86400'
+          },
+          notification: {
+            icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
+            badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
+            requireInteraction: true
           }
         }
       }
