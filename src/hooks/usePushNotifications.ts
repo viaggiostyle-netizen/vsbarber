@@ -10,24 +10,71 @@ import { toast } from "sonner";
 
 const STORAGE_KEY = "vs_push_token";
 
+// Parse user agent to get device name
+function getDeviceName(): string {
+  const ua = navigator.userAgent;
+  
+  // Try to extract mobile device model
+  const motoMatch = ua.match(/moto\s*([^;)\s]+)/i);
+  if (motoMatch) return `Motorola ${motoMatch[1]}`;
+  
+  const samsungMatch = ua.match(/SM-([A-Z0-9]+)/i);
+  if (samsungMatch) return `Samsung ${samsungMatch[1]}`;
+  
+  const xiaomiMatch = ua.match(/(Redmi|Mi|POCO)[^;)]*/i);
+  if (xiaomiMatch) return xiaomiMatch[0];
+  
+  const pixelMatch = ua.match(/Pixel\s*\d*/i);
+  if (pixelMatch) return `Google ${pixelMatch[0]}`;
+  
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua)) return 'iPad';
+  
+  // Generic Android
+  if (/Android/i.test(ua)) {
+    const modelMatch = ua.match(/;\s*([^;)]+)\s*Build/i);
+    if (modelMatch) return modelMatch[1].trim();
+    return 'Android Device';
+  }
+  
+  // Desktop browsers
+  if (/Windows/i.test(ua)) return 'Windows PC';
+  if (/Macintosh/i.test(ua)) return 'Mac';
+  if (/Linux/i.test(ua)) return 'Linux PC';
+  
+  return 'Dispositivo desconocido';
+}
+
 export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [deviceName, setDeviceName] = useState<string>('');
 
-  // Save token to database
-  const saveToken = async (fcmToken: string) => {
+  // Save token to database with device identification
+  const saveToken = async (fcmToken: string): Promise<boolean> => {
+    const device = getDeviceName();
+    const userAgentWithDevice = `${device} | ${navigator.userAgent}`;
+    
     const { error } = await supabase
       .from("fcm_tokens")
       .upsert(
         {
           token: fcmToken,
-          user_agent: navigator.userAgent,
+          user_agent: userAgentWithDevice,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "token" }
       );
-    if (error) throw error;
+    
+    if (error) {
+      console.error("Error saving token:", error);
+      throw error;
+    }
+    
+    setDeviceName(device);
+    console.log(`✅ Token guardado para: ${device}`);
+    return true;
   };
 
   // Remove token from database
@@ -84,6 +131,7 @@ export const usePushNotifications = () => {
   const subscribe = useCallback(async () => {
     setIsLoading(true);
     try {
+      console.log("🔔 Iniciando registro de notificaciones...");
       const fcmToken = await requestNotificationPermission();
       
       if (!fcmToken) {
@@ -91,15 +139,24 @@ export const usePushNotifications = () => {
         return false;
       }
 
+      console.log("🔑 Token FCM obtenido, guardando en base de datos...");
       await saveToken(fcmToken);
       localStorage.setItem(STORAGE_KEY, fcmToken);
       setToken(fcmToken);
       setIsSubscribed(true);
-      toast.success("¡Notificaciones activadas!");
+      
+      const device = getDeviceName();
+      toast.success(`✅ Notificaciones activadas en ${device}`, {
+        description: "Token registrado correctamente en la base de datos",
+        duration: 5000
+      });
+      
       return true;
     } catch (error) {
       console.error("Subscribe error:", error);
-      toast.error("Error al activar notificaciones");
+      toast.error("Error al activar notificaciones", {
+        description: error instanceof Error ? error.message : "Error desconocido"
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -134,6 +191,7 @@ export const usePushNotifications = () => {
     isSubscribed,
     isLoading,
     token,
+    deviceName,
     subscribe,
     unsubscribe,
   };
