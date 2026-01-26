@@ -226,8 +226,7 @@ Si no vas a venir o queres modificar tu cita, por favor ingresa de nuevo a https
           <div className="flex items-center gap-2">
             <TestPushButton />
             <PushNotificationButton />
-            {/* Logout button hidden visually - logic preserved */}
-            <Button variant="outline" size="sm" onClick={handleSignOut} className="sr-only">
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Salir
             </Button>
