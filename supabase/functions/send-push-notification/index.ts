@@ -102,28 +102,41 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // FCM HTTP v1 API payload - icon/badge go in webpush.notification, not top-level notification
+    // FCM HTTP v1 API payload - Proper Android system notification
     const message = {
       message: {
         token,
+        // Top-level notification object - REQUIRED for Android system tray
         notification: {
           title,
-          body
+          body,
+          image: 'https://vsbarber.lovable.app/vs-icon-192.png'
         },
+        // Data for custom handling
         data: {
+          title,
+          body,
           tag: data?.tag || 'vs-notification',
           url: data?.url || '/control',
           icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
           badge: 'https://vsbarber.lovable.app/vs-badge-96.png'
         },
+        // Android-specific: HIGH priority + channel for system alerts
         android: {
           priority: 'high',
           notification: {
+            channel_id: 'high_importance_channel',
             icon: 'ic_notification',
             color: '#D4AF37',
+            sound: 'default',
+            default_vibrate_timings: true,
+            default_sound: true,
+            visibility: 'PUBLIC',
+            notification_priority: 'PRIORITY_MAX',
             click_action: 'OPEN_CONTROL'
           }
         },
+        // Web push for PWA
         webpush: {
           headers: {
             Urgency: 'high',
@@ -132,6 +145,7 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
           notification: {
             icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
             badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
+            vibrate: [200, 100, 200],
             requireInteraction: true
           }
         }

@@ -19,14 +19,16 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
-// Handle background messages (data-only from FCM)
+// Handle background messages - show as system notification
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background message received:', payload);
   
+  // Get notification data from either notification object or data object
+  const notification = payload.notification || {};
   const data = payload.data || {};
   
-  const title = data.title || 'ViaggioStyle';
-  const body = data.body || 'Nueva notificación';
+  const title = notification.title || data.title || 'ViaggioStyle';
+  const body = notification.body || data.body || 'Nueva notificación';
   
   const options = {
     body: body,
@@ -34,10 +36,18 @@ messaging.onBackgroundMessage((payload) => {
     badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
     tag: data.tag || 'vs-notification',
     data: { url: data.url || '/control' },
-    vibrate: [200, 100, 200],
+    // Vibration pattern for system alert feel
+    vibrate: [300, 100, 300, 100, 300],
+    // Keep notification visible until user interacts
     requireInteraction: true,
-    renotify: false
+    // Sound and visual settings
+    silent: false,
+    renotify: true,
+    // Timestamp for ordering
+    timestamp: Date.now()
   };
+  
+  console.log('[SW] Showing notification:', title, options);
   
   return self.registration.showNotification(title, options);
 });
