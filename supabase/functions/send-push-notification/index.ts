@@ -102,18 +102,17 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Data-only message - Service Worker controls display (no duplicates)
+    // Single data-only message - SW handles display with custom branding
     const message = {
       message: {
         token,
         data: {
           title,
           body,
+          icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
+          badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
           tag: data?.tag || 'vs-notification',
-          url: data?.url || '/control',
-          icon: '/vs-icon-192.png',
-          badge: '/vs-badge-96.png',
-          ...(data || {})
+          url: data?.url || '/control'
         },
         android: {
           priority: 'high'
@@ -128,6 +127,7 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     };
 
     console.log("Sending FCM to:", token.substring(0, 30) + "...");
+    console.log("Message payload:", JSON.stringify(message, null, 2));
 
     const response = await fetch(
       `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -144,7 +144,8 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const result = await response.json();
     
     if (!response.ok) {
-      console.error("FCM error:", result);
+      console.error("FCM error response:", JSON.stringify(result, null, 2));
+      console.error("FCM HTTP status:", response.status);
       return false;
     }
 
@@ -152,6 +153,7 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     return true;
   } catch (error) {
     console.error("FCM send error:", error);
+    console.error("FCM error stack:", error instanceof Error ? error.stack : "No stack");
     return false;
   }
 }
