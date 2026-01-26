@@ -30,8 +30,8 @@ messaging.onBackgroundMessage((payload) => {
   
   const options = {
     body: body,
-    icon: data.icon || '/vs-icon-192.png',
-    badge: data.badge || '/vs-badge-96.png',
+    icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
+    badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
     tag: data.tag || 'vs-notification',
     data: { url: data.url || '/control' },
     vibrate: [200, 100, 200],

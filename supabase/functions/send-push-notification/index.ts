@@ -102,15 +102,17 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // Single data-only message - SW handles display with custom branding
+    // Include notification object for OS-level display when app is closed
     const message = {
       message: {
         token,
-        data: {
+        notification: {
           title,
           body,
           icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
-          badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
+          badge: 'https://vsbarber.lovable.app/vs-badge-96.png'
+        },
+        data: {
           tag: data?.tag || 'vs-notification',
           url: data?.url || '/control'
         },
