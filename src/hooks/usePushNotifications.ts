@@ -10,31 +10,43 @@ import { toast } from "sonner";
 
 const STORAGE_KEY = "vs_push_token";
 
-// Parse user agent to get device name
+// Parse user agent to get device name - improved for Motorola
 function getDeviceName(): string {
   const ua = navigator.userAgent;
   
-  // Try to extract mobile device model
-  const motoMatch = ua.match(/moto\s*([^;)\s]+)/i);
-  if (motoMatch) return `Motorola ${motoMatch[1]}`;
+  // Motorola devices - improved detection
+  const motoMatch = ua.match(/moto\s*([^\s;)]+)/i) || ua.match(/XT\d{4}/i);
+  if (motoMatch) return `Motorola ${motoMatch[0].replace(/moto\s*/i, '')}`;
   
+  // Samsung devices
   const samsungMatch = ua.match(/SM-([A-Z0-9]+)/i);
   if (samsungMatch) return `Samsung ${samsungMatch[1]}`;
   
+  // Xiaomi/Redmi/POCO
   const xiaomiMatch = ua.match(/(Redmi|Mi|POCO)[^;)]*/i);
-  if (xiaomiMatch) return xiaomiMatch[0];
+  if (xiaomiMatch) return xiaomiMatch[0].trim();
   
+  // Google Pixel
   const pixelMatch = ua.match(/Pixel\s*\d*/i);
   if (pixelMatch) return `Google ${pixelMatch[0]}`;
   
+  // Apple devices
   if (/iPhone/i.test(ua)) return 'iPhone';
   if (/iPad/i.test(ua)) return 'iPad';
   
-  // Generic Android
+  // Generic Android - try to extract model from Build info
   if (/Android/i.test(ua)) {
-    const modelMatch = ua.match(/;\s*([^;)]+)\s*Build/i);
-    if (modelMatch) return modelMatch[1].trim();
-    return 'Android Device';
+    // Try to get model from "Build/" pattern
+    const buildMatch = ua.match(/;\s*([^;)]+)\s*Build/i);
+    if (buildMatch) {
+      const model = buildMatch[1].trim();
+      // Check if it's a Motorola model code
+      if (model.toLowerCase().startsWith('moto')) {
+        return `Motorola ${model.replace(/moto\s*/i, '')}`;
+      }
+      return model;
+    }
+    return 'Android';
   }
   
   // Desktop browsers
@@ -42,7 +54,7 @@ function getDeviceName(): string {
   if (/Macintosh/i.test(ua)) return 'Mac';
   if (/Linux/i.test(ua)) return 'Linux PC';
   
-  return 'Dispositivo desconocido';
+  return 'Dispositivo';
 }
 
 export const usePushNotifications = () => {
@@ -131,23 +143,43 @@ export const usePushNotifications = () => {
   const subscribe = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Check if notifications are supported
+      if (!("Notification" in window)) {
+        toast.error("Tu navegador no soporta notificaciones");
+        return false;
+      }
+
+      // Check current permission status
+      const currentPermission = Notification.permission;
+      console.log("📱 Estado actual de permisos:", currentPermission);
+      
+      if (currentPermission === "denied") {
+        toast.error("Notificaciones bloqueadas", {
+          description: "Activa las notificaciones en Configuración > Apps > Chrome > Notificaciones",
+          duration: 8000
+        });
+        return false;
+      }
+
       console.log("🔔 Iniciando registro de notificaciones...");
       const fcmToken = await requestNotificationPermission();
       
       if (!fcmToken) {
-        toast.error("No se pudo activar. Verifica los permisos de notificación.");
+        toast.error("No se pudo activar", {
+          description: "Verifica los permisos de notificación en tu dispositivo"
+        });
         return false;
       }
 
-      console.log("🔑 Token FCM obtenido, guardando en base de datos...");
+      console.log("🔑 Token FCM obtenido, guardando...");
       await saveToken(fcmToken);
       localStorage.setItem(STORAGE_KEY, fcmToken);
       setToken(fcmToken);
       setIsSubscribed(true);
       
       const device = getDeviceName();
-      toast.success(`✅ Notificaciones activadas en ${device}`, {
-        description: "Token registrado correctamente en la base de datos",
+      toast.success(`✅ Notificaciones activadas`, {
+        description: `Registrado en: ${device}`,
         duration: 5000
       });
       
@@ -155,7 +187,7 @@ export const usePushNotifications = () => {
     } catch (error) {
       console.error("Subscribe error:", error);
       toast.error("Error al activar notificaciones", {
-        description: error instanceof Error ? error.message : "Error desconocido"
+        description: error instanceof Error ? error.message : "Intenta de nuevo"
       });
       return false;
     } finally {

@@ -38,38 +38,80 @@ export const getMessagingInstance = (): Messaging | null => {
 // Register service worker and get FCM token
 export const requestNotificationPermission = async (): Promise<string | null> => {
   try {
+    console.log("📱 Solicitando permiso de notificaciones...");
+    
     // Request permission
     const permission = await Notification.requestPermission();
+    console.log("📱 Permiso de notificaciones:", permission);
+    
     if (permission !== "granted") {
-      console.log("Notification permission denied");
+      console.log("❌ Permiso denegado");
       return null;
+    }
+
+    // Unregister old service workers first to ensure clean state
+    const existingRegs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of existingRegs) {
+      if (reg.active?.scriptURL.includes("firebase-messaging-sw.js")) {
+        console.log("🔄 Actualizando Service Worker existente...");
+        await reg.update();
+      }
     }
 
     // Register service worker
+    console.log("📱 Registrando Service Worker...");
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
       scope: "/"
     });
-    console.log("Service worker registered:", registration.scope);
+    console.log("✅ Service Worker registrado:", registration.scope);
 
-    // Wait for service worker to be ready
+    // Wait for service worker to be active
+    if (registration.installing) {
+      await new Promise<void>((resolve) => {
+        registration.installing!.addEventListener('statechange', function() {
+          if (this.state === 'activated') resolve();
+        });
+      });
+    }
+
     await navigator.serviceWorker.ready;
+    console.log("✅ Service Worker listo");
 
     const messagingInstance = getMessagingInstance();
     if (!messagingInstance) {
-      console.error("Messaging not available");
+      console.error("❌ Messaging no disponible");
       return null;
     }
 
-    // Get FCM token
-    const token = await getToken(messagingInstance, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration
-    });
+    // Get FCM token with retry
+    let token: string | null = null;
+    let attempts = 0;
+    
+    while (!token && attempts < 3) {
+      try {
+        attempts++;
+        console.log(`📱 Obteniendo token FCM (intento ${attempts})...`);
+        token = await getToken(messagingInstance, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+      } catch (err) {
+        console.error(`❌ Error en intento ${attempts}:`, err);
+        if (attempts < 3) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+    }
 
-    console.log("FCM Token obtained:", token ? token.substring(0, 20) + "..." : "none");
-    return token || null;
+    if (token) {
+      console.log("✅ Token FCM obtenido:", token.substring(0, 30) + "...");
+    } else {
+      console.error("❌ No se pudo obtener token FCM después de 3 intentos");
+    }
+    
+    return token;
   } catch (error) {
-    console.error("Error requesting notification permission:", error);
+    console.error("❌ Error en requestNotificationPermission:", error);
     return null;
   }
 };

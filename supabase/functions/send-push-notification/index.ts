@@ -95,46 +95,46 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// Send FCM message via HTTP v1 API
+// Send FCM message via HTTP v1 API - Optimized for Android 13
 async function sendFCM(token: string, title: string, body: string, data?: Record<string, string>): Promise<boolean> {
   try {
     const accessToken = await getAccessToken();
     const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT!);
     const projectId = serviceAccount.project_id;
 
-    // FCM HTTP v1 API payload - Proper Android system notification
+    // FCM HTTP v1 API payload - Android 13+ optimized
     const message = {
       message: {
         token,
-        // Top-level notification object - REQUIRED for Android system tray
+        // Notification payload for system tray (required for Android)
         notification: {
           title,
-          body,
-          image: 'https://vsbarber.lovable.app/vs-icon-192.png'
+          body
         },
-        // Data for custom handling
+        // Data payload for app handling
         data: {
           title,
           body,
-          tag: data?.tag || 'vs-notification',
+          tag: data?.tag || `vs-${Date.now()}`,
           url: data?.url || '/control',
-          icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
-          badge: 'https://vsbarber.lovable.app/vs-badge-96.png'
+          click_action: 'OPEN_CONTROL',
+          timestamp: Date.now().toString()
         },
-        // Android-specific: HIGH priority + channel for system alerts
+        // Android-specific configuration for Android 13+
         android: {
           priority: 'high',
+          ttl: '86400s',
           notification: {
             channel_id: 'high_importance_channel',
+            notification_priority: 'PRIORITY_MAX',
+            visibility: 'PUBLIC',
+            default_sound: true,
+            default_vibrate_timings: true,
             icon: 'ic_notification',
             color: '#D4AF37',
-            sound: 'default',
-            default_vibrate_timings: true,
-            default_sound: true,
-            visibility: 'PUBLIC',
-            notification_priority: 'PRIORITY_MAX',
-            click_action: 'OPEN_CONTROL'
-          }
+            tag: data?.tag || `vs-android-${Date.now()}`
+          },
+          direct_boot_ok: true
         },
         // Web push for PWA
         webpush: {
@@ -145,15 +145,19 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
           notification: {
             icon: 'https://vsbarber.lovable.app/vs-icon-192.png',
             badge: 'https://vsbarber.lovable.app/vs-badge-96.png',
-            vibrate: [200, 100, 200],
-            requireInteraction: true
+            vibrate: [100, 50, 100, 50, 100],
+            requireInteraction: true,
+            renotify: true,
+            tag: data?.tag || `vs-web-${Date.now()}`
+          },
+          fcm_options: {
+            link: data?.url || '/control'
           }
         }
       }
     };
 
     console.log("Sending FCM to:", token.substring(0, 30) + "...");
-    console.log("Message payload:", JSON.stringify(message, null, 2));
 
     const response = await fetch(
       `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -170,8 +174,7 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     const result = await response.json();
     
     if (!response.ok) {
-      console.error("FCM error response:", JSON.stringify(result, null, 2));
-      console.error("FCM HTTP status:", response.status);
+      console.error("FCM error:", response.status, JSON.stringify(result));
       return false;
     }
 
@@ -179,7 +182,6 @@ async function sendFCM(token: string, title: string, body: string, data?: Record
     return true;
   } catch (error) {
     console.error("FCM send error:", error);
-    console.error("FCM error stack:", error instanceof Error ? error.stack : "No stack");
     return false;
   }
 }
