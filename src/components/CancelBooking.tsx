@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useReservaByEmail } from '@/hooks/useReservas';
 import { formatPrice } from '@/lib/constants';
 import { toast } from 'sonner';
-import { ArrowLeft, Search, Trash2, Edit, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Search, Trash2, Edit, AlertTriangle, Mail, Calendar, Clock, Scissors, CreditCard, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { BookingCalendar } from './BookingCalendar';
@@ -149,13 +149,16 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
   if (cancelled) {
     return (
       <div className="text-center space-y-6">
+        <div className="w-20 h-20 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
+          <Trash2 className="w-10 h-10 text-destructive" />
+        </div>
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">Cita cancelada</h2>
           <p className="text-muted-foreground">
             Tu cita ha sido cancelada exitosamente.
           </p>
         </div>
-        <Button onClick={onBack} variant="outline" size="lg" className="w-full">
+        <Button onClick={onBack} variant="outline" size="lg" className="w-full rounded-xl">
           Volver al inicio
         </Button>
       </div>
@@ -165,13 +168,16 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
   if (modified) {
     return (
       <div className="text-center space-y-6">
+        <div className="w-20 h-20 mx-auto rounded-full bg-foreground/10 flex items-center justify-center">
+          <Edit className="w-10 h-10 text-foreground" />
+        </div>
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">Cita modificada</h2>
           <p className="text-muted-foreground">
             Tu cita ha sido modificada exitosamente.
           </p>
           {selectedDate && selectedTime && (
-            <div className="bg-card border border-border rounded-lg p-4 mt-4">
+            <div className="bg-card border border-border rounded-xl p-4 mt-4">
               <p className="text-sm text-muted-foreground">Nueva fecha y hora:</p>
               <p className="font-semibold capitalize">
                 {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })} a las {selectedTime.substring(0, 5)}
@@ -179,7 +185,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
             </div>
           )}
         </div>
-        <Button onClick={onBack} variant="outline" size="lg" className="w-full">
+        <Button onClick={onBack} variant="outline" size="lg" className="w-full rounded-xl">
           Volver al inicio
         </Button>
       </div>
@@ -205,7 +211,7 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
             </p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+          <div className="bg-card border border-border rounded-xl p-4 space-y-2">
             <p className="text-sm text-muted-foreground">Cita actual:</p>
             <p className="font-semibold">{reserva.servicio}</p>
             <p className="text-sm capitalize">
@@ -230,9 +236,9 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
           )}
 
           {selectedDate && selectedTime && (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+            <div className="bg-foreground/5 border border-foreground/20 rounded-xl p-4 space-y-2">
               <p className="text-sm font-medium">Nueva cita:</p>
-              <p className="capitalize">
+              <p className="capitalize font-semibold">
                 {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })} a las {selectedTime.substring(0, 5)}
               </p>
             </div>
@@ -240,10 +246,10 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
 
           <Button
             onClick={handleModify}
-            className="w-full bg-[#F9A825] hover:bg-[#F57F17] text-white"
+            className="w-full h-14 rounded-xl text-lg font-semibold"
             disabled={isModifying || !selectedDate || !selectedTime}
           >
-            <Edit className="w-4 h-4 mr-2" />
+            <Edit className="w-5 h-5 mr-2" />
             {isModifying ? 'Modificando...' : 'Confirmar modificación'}
           </Button>
         </div>
@@ -258,19 +264,22 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
 
           <form onSubmit={handleSubmit(onSearch)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="search-email">Email</Label>
+              <Label htmlFor="search-email" className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                Email
+              </Label>
               <Input
                 id="search-email"
                 type="email"
                 placeholder="tucorreo@gmail.com"
                 {...register('email')}
-                className="bg-card"
+                className="h-12 rounded-xl bg-card"
               />
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full h-12 rounded-xl" disabled={isLoading}>
               <Search className="w-4 h-4 mr-2" />
               Buscar reserva
             </Button>
@@ -280,57 +289,94 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
             <>
               {reserva ? (
                 <div className="space-y-4">
-                  <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-                    <h3 className="font-semibold">Tu reserva</h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nombre</span>
-                        <span className="font-medium">{reserva.nombre}</span>
+                  {/* Reservation card */}
+                  <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                    <div className="bg-foreground/5 px-5 py-3 border-b border-border">
+                      <h3 className="font-semibold">Tu reserva</h3>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                          <User className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">Nombre</p>
+                          <p className="font-medium">{reserva.nombre}</p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Servicio</span>
-                        <span className="font-medium">{reserva.servicio}</span>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                          <Scissors className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">Servicio</p>
+                          <p className="font-medium">{reserva.servicio}</p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Fecha</span>
-                        <span className="font-medium capitalize">
-                          {format(parseISO(reserva.fecha), "EEEE d 'de' MMMM, yyyy", { locale: es })}
-                        </span>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                          <Calendar className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">Fecha</p>
+                          <p className="font-medium capitalize">
+                            {format(parseISO(reserva.fecha), "EEEE d 'de' MMMM, yyyy", { locale: es })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Hora</span>
-                        <span className="font-medium">{reserva.hora.substring(0, 5)}</span>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                          <Clock className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">Hora</p>
+                          <p className="font-medium">{reserva.hora.substring(0, 5)}</p>
+                        </div>
                       </div>
-                      <div className="border-t pt-3 flex justify-between">
-                        <span className="text-muted-foreground">Precio</span>
-                        <span className="font-bold">{formatPrice(reserva.precio)}</span>
+
+                      <div className="border-t border-border pt-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-foreground text-background">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-muted-foreground">Precio</p>
+                            <p className="text-xl font-bold">{formatPrice(reserva.precio)}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Action buttons */}
                   <div className="grid grid-cols-2 gap-3">
                     <Button
                       onClick={() => setShowCancelConfirm(true)}
                       variant="destructive"
-                      className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
+                      className="w-full h-12 rounded-xl"
                       disabled={isDeleting}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Cancelar cita
+                      Cancelar
                     </Button>
                     
                     <Button
                       onClick={() => setShowModifyForm(true)}
-                      className="w-full bg-[#F9A825] hover:bg-[#F57F17] text-white"
+                      className="w-full h-12 rounded-xl"
                     >
                       <Edit className="w-4 h-4 mr-2" />
-                      Modificar cita
+                      Modificar
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No se encontró ninguna reserva futura con este email.
+                <div className="text-center py-8 px-4 bg-muted/50 rounded-xl">
+                  <p className="text-muted-foreground">
+                    No se encontró ninguna reserva futura con este email.
+                  </p>
                 </div>
               )}
             </>
@@ -340,24 +386,24 @@ export function CancelBooking({ onBack }: CancelBookingProps) {
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent className="bg-card">
+        <AlertDialogContent className="bg-card rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
-              ¿Cancelar tu cita?
+              ¿Seguro que quieres cancelar tu cita?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Tu horario quedará disponible para otros clientes.
+              Si cancelas tu cita no se podrá revertir el cambio. Si lo haces, asegúrate de avisarle al barbero para que él sepa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">Volver</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancel}
-              className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
               disabled={isDeleting}
             >
-              {isDeleting ? 'Cancelando...' : 'Sí, cancelar'}
+              {isDeleting ? 'Cancelando...' : 'Cancelar cita'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

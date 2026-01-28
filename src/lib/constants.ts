@@ -2,13 +2,13 @@ export const SERVICES = [
   {
     id: 'corte',
     name: 'Corte',
-    description: 'Incluye perfilado de cejas simple',
+    description: 'Corte completo, incluye perfilado de cejas sin costo adicional.',
     price: 7500,
   },
   {
     id: 'corte-barba',
     name: 'Corte + Barba',
-    description: 'Corte completo + perfilado de barba',
+    description: 'Corte completo y cejas, más un perfilado de barba simple.',
     price: 10000,
   },
 ] as const;

@@ -30,7 +30,7 @@ import RevenueStats from '@/components/RevenueStats';
 import { AdminRoleManager } from '@/components/AdminRoleManager';
 import { ClientesManager } from '@/components/ClientesManager';
 import { ReservationEditModal } from '@/components/ReservationEditModal';
-import vsLogo from '@/assets/vs-logo.jpg';
+import vsLogo from '@/assets/vs-logo-new.jpg';
 import { PushNotificationButton } from '@/components/PushNotificationButton';
 import { TestPushButton } from '@/components/TestPushButton';
 import type { Reserva } from '@/hooks/useReservas';
