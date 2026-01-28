@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { formatPrice } from '@/lib/constants';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Calendar, Clock, Scissors, CreditCard, User } from 'lucide-react';
 
 interface ConfirmationScreenProps {
   reserva: {
@@ -16,45 +16,87 @@ interface ConfirmationScreenProps {
 export function ConfirmationScreen({ reserva, onNewBooking }: ConfirmationScreenProps) {
   return (
     <div className="text-center space-y-8">
+      {/* Success icon */}
       <div className="flex justify-center">
-        <div className="w-20 h-20 rounded-full bg-foreground/10 flex items-center justify-center">
-          <CheckCircle className="w-12 h-12 text-foreground" />
+        <div className="w-24 h-24 rounded-full bg-foreground/10 flex items-center justify-center animate-in zoom-in duration-300">
+          <CheckCircle className="w-14 h-14 text-foreground" />
         </div>
       </div>
 
+      {/* Success message */}
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">¡Reserva confirmada!</h2>
-        <p className="text-muted-foreground">
-          Gracias por confiar en ViaggioStyle, te esperamos.
+        <h2 className="text-3xl font-bold">¡Cita confirmada!</h2>
+        <p className="text-muted-foreground text-lg">
+          ¡Gracias por confiar en ViaggioStyle! Te esperamos.
         </p>
       </div>
 
-      <div className="bg-card border border-border rounded-lg p-6 text-left space-y-4">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Nombre</span>
-          <span className="font-medium">{reserva.nombre}</span>
+      {/* Booking details card */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="bg-foreground/5 px-6 py-4 border-b border-border">
+          <h3 className="font-semibold text-lg">Detalles de tu reserva</h3>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Servicio</span>
-          <span className="font-medium">{reserva.servicio}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Fecha</span>
-          <span className="font-medium capitalize">{reserva.fecha}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Hora</span>
-          <span className="font-medium">{reserva.hora}</span>
-        </div>
-        <div className="border-t pt-4 flex justify-between">
-          <span className="text-muted-foreground">Precio</span>
-          <span className="text-xl font-bold">{formatPrice(reserva.precio)}</span>
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+              <User className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm text-muted-foreground">Nombre</p>
+              <p className="font-semibold">{reserva.nombre}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+              <Scissors className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm text-muted-foreground">Servicio</p>
+              <p className="font-semibold">{reserva.servicio}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+              <Calendar className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm text-muted-foreground">Fecha</p>
+              <p className="font-semibold capitalize">{reserva.fecha}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+              <Clock className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm text-muted-foreground">Hora</p>
+              <p className="font-semibold">{reserva.hora}</p>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-4 mt-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-foreground text-background">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm text-muted-foreground">Total a pagar</p>
+                <p className="text-2xl font-bold">{formatPrice(reserva.precio)}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Button onClick={onNewBooking} variant="outline" size="lg" className="w-full">
-        Hacer otra reserva
-      </Button>
+      {/* Actions */}
+      <div className="space-y-3">
+        <Button onClick={onNewBooking} variant="outline" size="lg" className="w-full">
+          Volver al inicio
+        </Button>
+      </div>
     </div>
   );
 }

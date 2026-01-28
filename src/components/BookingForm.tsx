@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsDateBlocked } from '@/hooks/useIsDateBlocked';
-import { Umbrella } from 'lucide-react';
+import { Umbrella, User, Phone, Mail, ArrowLeft, CalendarDays, Clock } from 'lucide-react';
 
 const bookingSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(100),
@@ -104,14 +104,23 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      {/* Personal info section */}
       <div className="space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground mb-4">
+          <User className="w-5 h-5" />
+          <span className="text-sm font-medium uppercase tracking-wide">Tus datos</span>
+        </div>
+
         <div className="space-y-2">
-          <Label htmlFor="nombre">Nombre</Label>
+          <Label htmlFor="nombre" className="flex items-center gap-2">
+            <User className="w-4 h-4 text-muted-foreground" />
+            Nombre completo
+          </Label>
           <Input
             id="nombre"
             placeholder="Tu nombre completo"
             {...register('nombre')}
-            className="bg-card"
+            className="h-12 rounded-xl bg-card"
           />
           {errors.nombre && (
             <p className="text-sm text-destructive">{errors.nombre.message}</p>
@@ -119,13 +128,16 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="telefono">Teléfono</Label>
+          <Label htmlFor="telefono" className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-muted-foreground" />
+            Teléfono
+          </Label>
           <Input
             id="telefono"
             type="tel"
             placeholder="Tu número de teléfono"
             {...register('telefono')}
-            className="bg-card"
+            className="h-12 rounded-xl bg-card"
           />
           {errors.telefono && (
             <p className="text-sm text-destructive">{errors.telefono.message}</p>
@@ -133,13 +145,16 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Gmail</Label>
+          <Label htmlFor="email" className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-muted-foreground" />
+            Email
+          </Label>
           <Input
             id="email"
             type="email"
             placeholder="tucorreo@gmail.com"
             {...register('email')}
-            className="bg-card"
+            className="h-12 rounded-xl bg-card"
           />
           {errors.email && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
@@ -147,18 +162,23 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         </div>
       </div>
 
+      {/* Date selection */}
       <div className="space-y-4">
-        <Label>Selecciona una fecha</Label>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <CalendarDays className="w-5 h-5" />
+          <span className="text-sm font-medium uppercase tracking-wide">Selecciona una fecha</span>
+        </div>
         <BookingCalendar selected={selectedDate} onSelect={(date) => {
           setSelectedDate(date);
           setSelectedTime(null);
         }} />
       </div>
 
+      {/* Time selection */}
       {selectedDate && (
         <div className="space-y-4">
           {isDateBlocked ? (
-            <div className="flex flex-col items-center gap-3 py-8 px-4 rounded-lg bg-destructive/10 border border-destructive/30">
+            <div className="flex flex-col items-center gap-3 py-8 px-4 rounded-xl bg-destructive/10 border border-destructive/30">
               <Umbrella className="w-12 h-12 text-destructive" />
               <p className="text-center text-destructive font-medium">
                 No disponible porque el barbero está de vacaciones
@@ -169,7 +189,12 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
             </div>
           ) : (
             <>
-              <Label>Horarios disponibles para {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</Label>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="w-5 h-5" />
+                <span className="text-sm font-medium uppercase tracking-wide">
+                  Horarios para {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
+                </span>
+              </div>
               <TimeSlots
                 date={selectedDate}
                 selected={selectedTime}
@@ -180,22 +205,24 @@ export function BookingForm({ serviceName, servicePrice, onSuccess, onBack }: Bo
         </div>
       )}
 
+      {/* Actions */}
       <div className="flex flex-col gap-3 pt-4">
         <Button
           type="submit"
           size="lg"
           disabled={!selectedDate || !selectedTime || isSubmitting || isDateBlocked}
-          className="w-full"
+          className="w-full h-14 rounded-xl text-lg font-semibold"
         >
-          {isSubmitting ? 'Agendando...' : 'Agendar reserva'}
+          {isSubmitting ? 'Agendando...' : 'Agendar cita'}
         </Button>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="lg"
           onClick={onBack}
-          className="w-full"
+          className="w-full h-12 rounded-xl"
         >
+          <ArrowLeft className="w-4 h-4 mr-2" />
           Volver
         </Button>
       </div>
