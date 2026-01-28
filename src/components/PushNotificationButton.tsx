@@ -1,8 +1,9 @@
+import { forwardRef } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
-export const PushNotificationButton = () => {
+export const PushNotificationButton = forwardRef<HTMLButtonElement>((_, ref) => {
   const { isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications();
 
   // Don't render if notifications not supported
@@ -13,6 +14,7 @@ export const PushNotificationButton = () => {
   if (isSubscribed) {
     return (
       <Button
+        ref={ref}
         variant="ghost"
         size="icon"
         onClick={unsubscribe}
@@ -30,6 +32,7 @@ export const PushNotificationButton = () => {
 
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       onClick={subscribe}
@@ -43,4 +46,6 @@ export const PushNotificationButton = () => {
       )}
     </Button>
   );
-};
+});
+
+PushNotificationButton.displayName = "PushNotificationButton";
